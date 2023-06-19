@@ -5,7 +5,9 @@ __pycache__
 hubert_base.pt
 /audios
 /pretrained
-/pretrained_2
+/pretrained_v2
 /uvr5_weights
 /logs
-/weights
+/weights/*
+/zips/*
+/unzips/*
