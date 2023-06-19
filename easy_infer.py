@@ -78,7 +78,7 @@ def load_downloaded_model(url):
         if filename.endswith(".zip"):
             zipfile_path = os.path.join(zips_path,filename)
             shutil.unpack_archive(zipfile_path, unzips_path, 'zip')
-            logs_dir =  os.path.basename(os.path.normpath(str(zipfile_path).replace(".zip","")))
+            logs_dir =  os.path.basename(os.path.join(parent_path, os.path.normpath(str(zipfile_path).replace(".zip",""))))
         else:
             return "El modelo se ha descargado pero no se ha podido descomprimir."
     
