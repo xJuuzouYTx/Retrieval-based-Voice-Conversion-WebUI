@@ -8,6 +8,7 @@ hubert_base.pt
 /pretrained_v2
 /uvr5_weights
 /logs
+!/logs/mute/
 /weights/*
 /zips/*
 /unzips/*
