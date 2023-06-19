@@ -899,7 +899,7 @@ def click_train(
     print(cmd)
     p = Popen(cmd, shell=True, cwd=now_dir)
     p.wait()
-    return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
+    return "Una vez finalizado el entrenamiento puede consultar el registro de entrenamiento en la consola o en el archivo train.log"
 
 
 # but4.click(train_index, [exp_dir1], info3)

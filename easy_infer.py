@@ -94,7 +94,7 @@ def load_downloaded_model(url):
             if not 'G_' in item and not 'D_' in item and item.endswith('.pth'):
                 model_file = True
                 model_name = item.replace(".pth","")
-                logs_dir = os.path.join(parent_path, model_name)
+                logs_dir = os.path.join(parent_path,'logs', model_name)
                 if os.path.exists(logs_dir):
                     shutil.rmtree(logs_dir)
                 os.mkdir(logs_dir)
