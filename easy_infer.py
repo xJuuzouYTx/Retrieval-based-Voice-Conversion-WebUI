@@ -58,126 +58,139 @@ def download_from_url(url):
                 
 
 def load_downloaded_model(url):
-    logs_folders = ['0_gt_wavs','1_16k_wavs','2a_f0','2b-f0nsf','3_feature256','3_feature768']
-     
     parent_path = find_folder_parent(".", "pretrained_v2")
-    zips_path = os.path.join(parent_path, 'zips')
-    unzips_path = os.path.join(parent_path, 'unzips')
-    weights_path = os.path.join(parent_path, 'weights')
-    logs_dir = ""
-    
-    if os.path.exists(zips_path):
-        shutil.rmtree(zips_path)
-    if os.path.exists(unzips_path):
-        shutil.rmtree(unzips_path)
-
-    os.mkdir(zips_path)
-    os.mkdir(unzips_path)
-    
-    download_file = download_from_url(url)
-    if not download_file:
-        return "No se ha podido descargar el modelo."
-    # Descomprimir archivos descargados
-    for filename in os.listdir(zips_path):
-        if filename.endswith(".zip"):
-            zipfile_path = os.path.join(zips_path,filename)
-            shutil.unpack_archive(zipfile_path, unzips_path, 'zip')
-            logs_dir =  os.path.basename(os.path.join(parent_path,'logs', os.path.normpath(str(zipfile_path).replace(".zip",""))))
-        else:
-            return "El modelo se ha descargado pero no se ha podido descomprimir."
-    
-    index_file = False
-    model_file = False
-    D_file = False
-    G_file = False
-      
-    # Copiar archivo pth
-    for path, subdirs, files in os.walk(unzips_path):
-        for item in files:
-            item_path = os.path.join(path, item)
-            if not 'G_' in item and not 'D_' in item and item.endswith('.pth'):
-                model_file = True
-                model_name = item.replace(".pth","")
-                logs_dir = os.path.join(parent_path,'logs', model_name)
-                if os.path.exists(logs_dir):
-                    shutil.rmtree(logs_dir)
-                os.mkdir(logs_dir)
-                if not os.path.exists(weights_path):
-                    os.mkdir(weights_path)
-                if os.path.exists(os.path.join(weights_path, item)):
-                    os.remove(os.path.join(weights_path, item))
-                if os.path.exists(item_path):
-                    shutil.move(item_path, weights_path)
-    
-    # Copiar index, D y G
-    for path, subdirs, files in os.walk(unzips_path):
-        for item in files:
-            item_path = os.path.join(path, item)
-            if item.startswith('added_') and item.endswith('.index'):
-                index_file = True
-                if os.path.exists(item_path):
-                    shutil.move(item_path, logs_dir)
-            if 'D_' in item and item.endswith('.pth'):
-                D_file = True
-                if os.path.exists(item_path):
-                    shutil.move(item_path, logs_dir)
-            if 'G_' in item and item.endswith('.pth'):
-                G_file = True
-                if os.path.exists(item_path):
-                    shutil.move(item_path, logs_dir)
-            if item.startswith('total_fea.npy') or item.startswith('events.'):
-                if os.path.exists(item_path):
-                    shutil.move(item_path, logs_dir)
-            
-    # Mover todos los folders excepto 'eval'
-    for path, subdirs, files in os.walk(unzips_path):
-        for folder in subdirs:
-          if folder in logs_folders:
-            item_path = os.path.join(path, folder)
-            shutil.move(item_path, logs_dir)
-            
-    result = ""
-    if model_file:
-        if index_file:
-            result += "El modelo funciona para inferencia, y tiene el archivo .index."
-        else:
-            result += "El modelo funciona para inferencia, pero no tiene el archivo .index."
-    if D_file and G_file:
-        if result:
-            result += "\n"
-        result += "El modelo puede ser reentrenado."
+    try:
+        logs_folders = ['0_gt_wavs','1_16k_wavs','2a_f0','2b-f0nsf','3_feature256','3_feature768']
+        zips_path = os.path.join(parent_path, 'zips')
+        unzips_path = os.path.join(parent_path, 'unzips')
+        weights_path = os.path.join(parent_path, 'weights')
+        logs_dir = ""
         
-    return result
+        if os.path.exists(zips_path):
+            shutil.rmtree(zips_path)
+        if os.path.exists(unzips_path):
+            shutil.rmtree(unzips_path)
+
+        os.mkdir(zips_path)
+        os.mkdir(unzips_path)
+        
+        download_file = download_from_url(url)
+        if not download_file:
+            return "No se ha podido descargar el modelo."
+        # Descomprimir archivos descargados
+        for filename in os.listdir(zips_path):
+            if filename.endswith(".zip"):
+                zipfile_path = os.path.join(zips_path,filename)
+                shutil.unpack_archive(zipfile_path, unzips_path, 'zip')
+                logs_dir =  os.path.basename(os.path.join(parent_path,'logs', os.path.normpath(str(zipfile_path).replace(".zip",""))))
+            else:
+                return "El modelo se ha descargado pero no se ha podido descomprimir."
+        
+        index_file = False
+        model_file = False
+        D_file = False
+        G_file = False
+        
+        # Copiar archivo pth
+        for path, subdirs, files in os.walk(unzips_path):
+            for item in files:
+                item_path = os.path.join(path, item)
+                if not 'G_' in item and not 'D_' in item and item.endswith('.pth'):
+                    model_file = True
+                    model_name = item.replace(".pth","")
+                    logs_dir = os.path.join(parent_path,'logs', model_name)
+                    if os.path.exists(logs_dir):
+                        shutil.rmtree(logs_dir)
+                    os.mkdir(logs_dir)
+                    if not os.path.exists(weights_path):
+                        os.mkdir(weights_path)
+                    if os.path.exists(os.path.join(weights_path, item)):
+                        os.remove(os.path.join(weights_path, item))
+                    if os.path.exists(item_path):
+                        shutil.move(item_path, weights_path)
+        
+        # Copiar index, D y G
+        for path, subdirs, files in os.walk(unzips_path):
+            for item in files:
+                item_path = os.path.join(path, item)
+                if item.startswith('added_') and item.endswith('.index'):
+                    index_file = True
+                    if os.path.exists(item_path):
+                        shutil.move(item_path, logs_dir)
+                if 'D_' in item and item.endswith('.pth'):
+                    D_file = True
+                    if os.path.exists(item_path):
+                        shutil.move(item_path, logs_dir)
+                if 'G_' in item and item.endswith('.pth'):
+                    G_file = True
+                    if os.path.exists(item_path):
+                        shutil.move(item_path, logs_dir)
+                if item.startswith('total_fea.npy') or item.startswith('events.'):
+                    if os.path.exists(item_path):
+                        shutil.move(item_path, logs_dir)
+                
+        # Mover todos los folders excepto 'eval'
+        for path, subdirs, files in os.walk(unzips_path):
+            for folder in subdirs:
+                if folder in logs_folders:
+                    item_path = os.path.join(path, folder)
+                    shutil.move(item_path, logs_dir)
+                
+        result = ""
+        if model_file:
+            if index_file:
+                result += "El modelo funciona para inferencia, y tiene el archivo .index."
+            else:
+                result += "El modelo funciona para inferencia, pero no tiene el archivo .index."
+        if D_file and G_file:
+            if result:
+                result += "\n"
+            result += "El modelo puede ser reentrenado."
+        
+        os.chdir(parent_path)    
+        return result
+    except Exception as e:
+        os.chdir(parent_path)
+        print(e)
+        return "Ocurrio un error descargando el modelo"
+    finally:
+        os.chdir(parent_path)
       
 def load_dowloaded_dataset(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
-    zips_path = os.path.join(parent_path, 'zips')
-    unzips_path = os.path.join(parent_path, 'unzips')
-    datasets_path = os.path.join(parent_path, 'datasets')
     
-    if os.path.exists(zips_path):
-        shutil.rmtree(zips_path)
-    if os.path.exists(unzips_path):
-        shutil.rmtree(unzips_path)
-    if not os.path.exists(datasets_path):
-        os.mkdir(datasets_path)
+    try:
+        zips_path = os.path.join(parent_path, 'zips')
+        unzips_path = os.path.join(parent_path, 'unzips')
+        datasets_path = os.path.join(parent_path, 'datasets')
         
-    os.mkdir(zips_path)
-    os.mkdir(unzips_path)
-    
-    download_file = download_from_url(url)
-    if not download_file:
-        return "No se ha podido descargar el dataset."
-
-    zip_path = os.listdir(zips_path)
-    for file in zip_path:
-        if file.endswith('.zip'):
-            file_path = os.path.join(zips_path, file)
-            shutil.unpack_archive(file_path, datasets_path, 'zip')
-            new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
-            os.rename(file_path, new_name)
+        if os.path.exists(zips_path):
+            shutil.rmtree(zips_path)
+        if os.path.exists(unzips_path):
+            shutil.rmtree(unzips_path)
+        if not os.path.exists(datasets_path):
+            os.mkdir(datasets_path)
             
-    return "Dataset descargado."
+        os.mkdir(zips_path)
+        os.mkdir(unzips_path)
+        
+        download_file = download_from_url(url)
+        if not download_file:
+            return "No se ha podido descargar el dataset."
+
+        zip_path = os.listdir(zips_path)
+        for file in zip_path:
+            if file.endswith('.zip'):
+                file_path = os.path.join(zips_path, file)
+                shutil.unpack_archive(file_path, datasets_path, 'zip')
+                new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
+                os.rename(file_path, new_name)
+                
+        return "Dataset descargado."
+    except Exception as e:
+        os.chdir(parent_path)
+        print(e)
+        return "Error al descargar"
 
 def save_model(modelname, save_action):
     infos = []
