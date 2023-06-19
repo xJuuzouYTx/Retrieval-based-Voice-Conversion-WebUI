@@ -123,6 +123,8 @@ def load_downloaded_model(url):
                     if os.path.exists(item_path):
                         shutil.move(item_path, weights_path)
         
+        if not model_file and not os.path.exists(logs_dir):
+            os.mkdir(logs_dir)
         # Copiar index, D y G
         for path, subdirs, files in os.walk(unzips_path):
             for item in files:
