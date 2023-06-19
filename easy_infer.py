@@ -3,6 +3,10 @@ import os
 import shutil
 from mega import Mega
 import datetime
+import unicodedata
+import glob
+import gradio as gr
+import gdown
 
 def find_parent(search_dir, file_name):
     for dirpath, dirnames, filenames in os.walk(search_dir):
@@ -144,50 +148,133 @@ def load_downloaded_model(url):
         result += "El modelo puede ser reentrenado."
         
     return result
+      
+def load_dowloaded_dataset(url):
+    parent_path = find_folder_parent(".", "pretrained_v2")
+    zips_path = os.path.join(parent_path, 'zips')
+    unzips_path = os.path.join(parent_path, 'unzips')
+    datasets_path = os.path.join(parent_path, 'datasets')
+    
+    if os.path.exists(zips_path):
+        shutil.rmtree(zips_path)
+    if os.path.exists(unzips_path):
+        shutil.rmtree(unzips_path)
+    if not os.path.exists(datasets_path):
+        os.mkdir(datasets_path)
+        
+    os.mkdir(zips_path)
+    os.mkdir(unzips_path)
+    
+    download_file = download_from_url(url)
+    if not download_file:
+        return "No se ha podido descargar el dataset."
 
-    # url = url.strip()
-    # if url == '':
-    #     return "La URL no puede estar vacia."
-    # zip_dirs = ["zips", "unzips"]
-    # for directory in zip_dirs:
-    #     if os.path.exists(directory):
-    #         shutil.rmtree(directory)
-    # os.makedirs("zips", exist_ok=True)
-    # os.makedirs("unzips", exist_ok=True)
-    # zipfile = ''
-    # zipfile_path = './zips/' + zipfile
-    # MODELEPOCH = ''
-    # print(url)
-    # if "drive.google.com" in url:
-    #     try:
-    #         subprocess.run(["gdown", url, "--fuzzy", "-O", zipfile_path])
-    #     except Exception as e:
-    #         try:
-    #             print(e)
-    #         except:
-    #             return "Error al descargar"
-    # elif "mega.nz" in url:
-    #     m = Mega()
-    #     m.download_url(url, './zips')
-    # else:
-    #     subprocess.run(["wget", url, "-O", f"./zips/{zipfile}"])
-    # ---
-    # for root, dirs, files in os.walk('./unzips'):
-    #     for file in files:
-    #         if "G_" in file:
-    #             MODELEPOCH = file.split("G_")[1].split(".")[0]
-    #     if MODELEPOCH == '':
-    #         MODELEPOCH = '404'
-    #     for file in files:
-    #         file_path = os.path.join(root, file)
-    #         if file.endswith(".npy") or file.endswith(".index"):
-    #             subprocess.run(["mkdir", "-p", f"./logs/{model}"])
-    #             subprocess.run(["mv", file_path, f"./logs/{model}/"])
-    #         elif "G_" not in file and "D_" not in file and file.endswith(".pth"):
-    #             subprocess.run(["mv", file_path, f"./weights/{model}.pth"])
-    # shutil.rmtree("zips")
-    # shutil.rmtree("unzips")
-    # return "Success."
+    zip_path = os.listdir(zips_path)
+    for file in zip_path:
+        if file.endswith('.zip'):
+            file_path = os.path.join(zips_path, file)
+            shutil.unpack_archive(file_path, datasets_path, 'zip')
+            new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
+            os.rename(file_path, new_name)
+            
+    return "Dataset descargado."
+
+def save_model(modelname, save_action):
+    infos = []
+    
+    parent_path = find_folder_parent(".", "pretrained_v2")
+    zips_path = os.path.join(parent_path, 'zips')
+    dst = os.path.join(zips_path,modelname)
+    logs_path = os.path.join(parent_path, 'logs', modelname)
+    weights_path = os.path.join(parent_path, 'weights', f"{modelname}.pth")
+    save_folder = parent_path
+    
+    if not 'content' in parent_path:
+        save_folder = os.path.join(parent_path, 'RVC')
+    else:
+        save_folder = '/content/drive/MyDrive/RVC'
+    
+    infos.append(f"Guardando modelo en: {save_folder}")
+    yield "\n".join(infos)
+    
+    # Si no existe el folder RVC para guardar los modelos
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+    
+    # Si ya existe el folders zips borro su contenido por si acaso
+    if os.path.exists(zips_path):
+        shutil.rmtree(zips_path)
+        
+    os.mkdir(zips_path)
+    
+    added_file = glob.glob(os.path.join(logs_path, "added_*.index"))
+    d_file = glob.glob(os.path.join(logs_path, "D_*.pth"))
+    g_file = glob.glob(os.path.join(logs_path, "G_*.pth"))
+    
+    if save_action == "Guardar todo":
+        shutil.copytree(logs_path, dst)
+    else:
+        # Si no existe el folder donde se va a comprimir el modelo
+        if not os.path.exists(dst):
+            os.mkdir(dst)
+        
+    if save_action == "Guardar D y G":
+
+        if len(d_file) > 0:
+            shutil.copy(d_file[0], dst)
+        if len(g_file) > 0:
+            shutil.copy(g_file[0], dst)    
+        if len(added_file) > 0:
+            shutil.copy(added_file[0], dst)
+            
+    if save_action == "Guardar voz":
+        pass
+        if len(added_file) > 0:
+            shutil.copy(added_file[0], dst)
+        else:
+            shutil.rmtree(zips_path)
+            raise gr.Error("¡No ha generado el archivo added_*.index!")
+    
+    yield "\n".join(infos)
+    # Si no existe el archivo del modelo no copiarlo
+    if not os.path.exists(weights_path):
+        shutil.rmtree(zips_path)
+        raise gr.Error("¡No ha generado el modelo pequeño!")
+    else:
+        shutil.copy(weights_path, dst)
+    
+    yield "\n".join(infos)
+    infos.append("\nEsto puede tomar unos minutos, por favor espere...")    
+    infos.append("\nComprimiendo modelo...")
+    yield "\n".join(infos)
+    
+    shutil.make_archive(os.path.join(zips_path,f"{modelname}"), 'zip', zips_path)
+    shutil.move(os.path.join(zips_path,f"{modelname}.zip"), os.path.join(save_folder, f'{modelname}.zip'))
+    
+    shutil.rmtree(zips_path)
+    #shutil.rmtree(zips_path)
+    
+    infos.append("\n¡Modelo guardado!")
+    yield "\n".join(infos)
+    
+def load_dowloaded_backup(url):
+    parent_path = find_folder_parent(".", "pretrained_v2")
+    logs_path = os.path.join(parent_path, 'logs')
+    infos = []
+    print("Descargando en...")
+    infos.append(f"\nDescargando en {logs_path}")
+    "\n".join(infos)
+    try:
+        os.chdir(logs_path)
+        filename = gdown.download_folder(url=url,quiet=True, remaining_ok=True)
+        infos.append(f"\nBackup cargado: {filename}")
+        "\n".join(infos)
+    except Exception as e:
+        print(e)
+        infos.append("\nOcurrió un error al descargar")
+        "\n".join(infos)
+    finally:
+        os.chdir(logs_path)
 
 def save_to_wav(record_button):
     if record_button is None:

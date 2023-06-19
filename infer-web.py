@@ -1,7 +1,8 @@
 import os
 import shutil
 import sys
-
+import signal
+import psutil
 import json # Mangio fork using json for preset saving
 
 now_dir = os.getcwd()
@@ -16,6 +17,7 @@ os.environ["no_proxy"] = "localhost, 127.0.0.1, ::1"
 import logging
 import threading
 from random import shuffle
+import subprocess
 from subprocess import Popen
 from time import sleep
 import easy_infer
@@ -765,6 +767,7 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
         else "",
     )
 
+running_process = None
 
 # but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
@@ -781,8 +784,10 @@ def click_train(
     gpus16,
     if_cache_gpu17,
     if_save_every_weights18,
-    version19,
+    version19,  
 ):
+    global running_process
+    
     # 生成filelist
     exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
@@ -898,8 +903,9 @@ def click_train(
         )
     print(cmd)
     p = Popen(cmd, shell=True, cwd=now_dir)
+    running_process = p
     p.wait()
-    return "Una vez finalizado el entrenamiento puede consultar el registro de entrenamiento en la consola o en el archivo train.log"
+    return "Entrenamiento finalizado."
 
 
 # but4.click(train_index, [exp_dir1], info3)
@@ -1243,6 +1249,18 @@ def train1key(
     )
     yield get_info_str(i18n("全流程结束！"))
 
+def stop_training(stop):
+    global running_process
+    print("Deteniendo entrenamiento")
+    
+    if running_process:
+        process = psutil.Process(running_process.pid)
+        for proc in process.children(recursive=True):
+            proc.kill()
+        process.kill()
+        running_process = None
+    
+    return "El entrenamiento se ha pausado."
 
 #                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path):
@@ -1621,7 +1639,7 @@ def get_presets():
     
     return preset_names
 
-# Inference easy-infer
+# Inference easy-infer audios
 audio_files=[]
 for filename in os.listdir("./audios"):
     if filename.endswith(('.wav','.mp3')):
@@ -1633,6 +1651,47 @@ def get_name():
     else:
         return ''
     
+# Inference easy-infer datasets
+datasets=[]
+for foldername in os.listdir("./datasets"):
+    if "." not in foldername:
+        datasets.append(os.path.join(easy_infer.find_folder_parent(".","pretrained"),"datasets",foldername))
+        
+def get_dataset():
+    if len(datasets) > 0:
+        return sorted(datasets)[0]
+    else:
+        return ''
+
+# Inference easy-infer getG files
+g_files=[]
+for root, subfolders, files in os.walk("./logs"):
+    for filename in files:
+        if 'G_' in filename and filename.endswith('.pth'):
+            g_files.append(os.path.join(root, filename))
+        
+def get_g_files():
+    if len(g_files) > 0:
+        return sorted(g_files)[0]
+    else:
+        return ''
+
+def update_g_files(name):
+    g_files=[]
+    for root, subfolders, files in os.walk("./logs"):
+        for filename in files:
+            if 'G_' in filename and filename.endswith('.pth'):
+                g_files.append(os.path.join(root, filename))
+    return gr.Dropdown.update(choices=g_files)
+
+def update_dataset_list(name):
+    new_datasets = []
+    for foldername in os.listdir("./datasets"):
+        if "." not in foldername:
+            new_datasets.append(foldername)
+    return gr.Dropdown.update(choices=new_datasets)
+
+
 with gr.Blocks(theme=gr.themes.Soft()) as app:
     gr.HTML("<h1> The Mangio-RVC-Fork - IA Hispano - Juuxn 💻 </h1>")
     gr.Markdown(
@@ -2008,6 +2067,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                 )
             )
             with gr.Row():
+                
                 exp_dir1 = gr.Textbox(label=i18n("输入实验名"), value="mi-test")
                 sr2 = gr.Radio(
                     label=i18n("目标采样率"),
@@ -2043,9 +2103,8 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     )
                 )
                 with gr.Row():
-                    trainset_dir4 = gr.Textbox(
-                        label=i18n("输入训练文件夹路径"), value="E:\\语音音频+标注\\米津玄师\\src"
-                    )
+                    trainset_dir4 = gr.Dropdown(choices=sorted(datasets), label="Selecciona tu dataset.", value=get_dataset())
+                    
                     spk_id5 = gr.Slider(
                         minimum=0,
                         maximum=4,
@@ -2172,8 +2231,13 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         interactive=True,
                     )
                     but3 = gr.Button(i18n("训练模型"), variant="primary")
+                    but6 = gr.Button("Detener entrenamiento", variant="primary")
                     but4 = gr.Button(i18n("训练特征索引"), variant="primary")
-                    but5 = gr.Button(i18n("一键训练"), variant="primary")
+                    # but5 = gr.Button(i18n("一键训练"), variant="primary")
+                    with gr.Row():
+                        save_action = gr.Dropdown(label="Tipo de guardado", choices=["Guardar todo","Guardar D y G", "Guardar voz"], value="Guardar voz", interactive=True)
+                        but7 = gr.Button("Guardar modelo", variant="primary")
+                        
                     info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
                     but3.click(
                         click_train,
@@ -2196,30 +2260,32 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         info3,
                     )
                     but4.click(train_index, [exp_dir1, version19], info3)
-                    but5.click(
-                        train1key,
-                        [
-                            exp_dir1,
-                            sr2,
-                            if_f0_3,
-                            trainset_dir4,
-                            spk_id5,
-                            np7,
-                            f0method8,
-                            save_epoch10,
-                            total_epoch11,
-                            batch_size12,
-                            if_save_latest13,
-                            pretrained_G14,
-                            pretrained_D15,
-                            gpus16,
-                            if_cache_gpu17,
-                            if_save_every_weights18,
-                            version19,
-                            extraction_crepe_hop_length
-                        ],
-                        info3,
-                    )
+                    but6.click(stop_training, [exp_dir1], info3)
+                    but7.click(easy_infer.save_model, [exp_dir1, save_action], info3)
+                    # but5.click(
+                    #     train1key,
+                    #     [
+                    #         exp_dir1,
+                    #         sr2,
+                    #         if_f0_3,
+                    #         trainset_dir4,
+                    #         spk_id5,
+                    #         np7,
+                    #         f0method8,
+                    #         save_epoch10,
+                    #         total_epoch11,
+                    #         batch_size12,
+                    #         if_save_latest13,
+                    #         pretrained_G14,
+                    #         pretrained_D15,
+                    #         gpus16,
+                    #         if_cache_gpu17,
+                    #         if_save_every_weights18,
+                    #         version19,
+                    #         extraction_crepe_hop_length
+                    #     ],
+                    #     info3,
+                    # )
 
         with gr.TabItem(i18n("ckpt处理")):
             # with gr.Group():
@@ -2314,14 +2380,15 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     )
                 )
                 with gr.Row():
-                    ckpt_path2 = gr.Textbox(
-                        label=i18n("模型路径"),
-                        value="E:\\codes\\py39\\logs\\mi-test_f0_48k\\G_23333.pth",
-                        interactive=True,
-                    )
-                    save_name = gr.Textbox(
-                        label=i18n("保存名"), value="", interactive=True
-                    )
+                    with gr.Column():
+                        ckpt_path2 = gr.Dropdown(choices=sorted(g_files), label="Selecciona el ckpt de tu modelo.", value=get_g_files())
+                        
+                        btn_extract_model_update_list = gr.Button("Actualizar listado", variant="primary")
+                        
+                        save_name = gr.Textbox(
+                            label=i18n("保存名"), value="", interactive=True
+                        )
+                    
                     sr__ = gr.Radio(
                         label=i18n("目标采样率"),
                         choices=["32k", "40k", "48k"],
@@ -2353,6 +2420,9 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     [ckpt_path2, save_name, sr__, if_f0__, info___, version_1],
                     info7,
                 )
+                btn_extract_model_update_list.click(
+                    update_g_files, [ckpt_path2], ckpt_path2
+                )
 
         # with gr.TabItem(i18n("Onnx导出")):
         #     with gr.Row():
@@ -2380,14 +2450,35 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
         #     except:
         #         gr.Markdown(traceback.format_exc())
                 
-        with gr.TabItem("Descargar Modelo"):
+        with gr.TabItem("Recursos"):
+            gr.Markdown(value="# Descargar un modelo")
             with gr.Row():
-                url=gr.Textbox(label="Url del modelo:")
+                model_url=gr.Textbox(label="Url del modelo:")
             with gr.Row():
-                download_button=gr.Button(label="Descargar")
+                download_button=gr.Button("Descargar modelo")
             with gr.Row():
-                status_bar=gr.Textbox(label="")
-                download_button.click(fn=easy_infer.load_downloaded_model, inputs=[url], outputs=[status_bar])
+                download_model_status_bar=gr.Textbox(label="status")
+                download_button.click(fn=easy_infer.load_downloaded_model, inputs=[model_url], outputs=[download_model_status_bar])
+            
+            gr.Markdown(value="# Cargar un dataset")
+            with gr.Row():
+                dataset_url=gr.Textbox(label="Url del dataset:")
+            with gr.Row():
+                load_dataset_button=gr.Button("Cargar dataset")
+            with gr.Row():
+                load_dataset_status_bar=gr.Textbox(label="status")
+                load_dataset_button.click(fn=easy_infer.load_dowloaded_dataset, inputs=[dataset_url], outputs=[load_dataset_status_bar])
+                
+            load_dataset_status_bar.change(update_dataset_list, dataset_url, trainset_dir4)
+            
+            gr.Markdown(value="# Cargar un backup")
+            with gr.Row():
+                backup_url=gr.Textbox(label="Url del backup:")
+            with gr.Row():
+                load_backup_button=gr.Button("Cargar backup")
+            with gr.Row():
+                load_backup_status_bar=gr.Textbox(label="status")
+                load_backup_button.click(fn=easy_infer.load_dowloaded_backup, inputs=[backup_url], outputs=[load_backup_status_bar])
 
     #region Mangio Preset Handler Region
     def save_preset(
