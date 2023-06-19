@@ -1688,7 +1688,7 @@ def update_dataset_list(name):
     new_datasets = []
     for foldername in os.listdir("./datasets"):
         if "." not in foldername:
-            new_datasets.append(foldername)
+            new_datasets.append(os.path.join(easy_infer.find_folder_parent(".","pretrained"),"datasets",foldername))
     return gr.Dropdown.update(choices=new_datasets)
 
 
