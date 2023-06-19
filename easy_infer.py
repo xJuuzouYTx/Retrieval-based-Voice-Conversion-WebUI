@@ -60,6 +60,7 @@ def download_from_url(url):
 def load_downloaded_model(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
     try:
+        infos = []
         logs_folders = ['0_gt_wavs','1_16k_wavs','2a_f0','2b-f0nsf','3_feature256','3_feature768']
         zips_path = os.path.join(parent_path, 'zips')
         unzips_path = os.path.join(parent_path, 'unzips')
@@ -76,15 +77,27 @@ def load_downloaded_model(url):
         
         download_file = download_from_url(url)
         if not download_file:
-            return "No se ha podido descargar el modelo."
+            print("No se ha podido descargar el modelo.")
+            infos.append("No se ha podido descargar el modelo.")
+            yield "\n".join(infos)
+        else:
+            print("Modelo descargado correctamente. Procediendo con la extracción...")
+            infos.append("Modelo descargado correctamente. Procediendo con la extracción...")
+            yield "\n".join(infos)
+            
         # Descomprimir archivos descargados
         for filename in os.listdir(zips_path):
             if filename.endswith(".zip"):
                 zipfile_path = os.path.join(zips_path,filename)
                 shutil.unpack_archive(zipfile_path, unzips_path, 'zip')
-                logs_dir =  os.path.basename(os.path.join(parent_path,'logs', os.path.normpath(str(zipfile_path).replace(".zip",""))))
+                logs_dir = os.path.join(parent_path,'logs', os.path.normpath(str(zipfile_path).replace(".zip","")))
+                print("Modelo descomprimido correctamente. Copiando a logs...")
+                infos.append("Modelo descomprimido correctamente. Copiando a logs...")
+                yield "\n".join(infos)
             else:
-                return "El modelo se ha descargado pero no se ha podido descomprimir."
+                print("Error al descomprimir el modelo.")
+                infos.append("Error al descomprimir el modelo.")
+                yield "\n".join(infos)
         
         index_file = False
         model_file = False
@@ -139,13 +152,16 @@ def load_downloaded_model(url):
         result = ""
         if model_file:
             if index_file:
-                result += "El modelo funciona para inferencia, y tiene el archivo .index."
+                infos.append("\nEl modelo funciona para inferencia, y tiene el archivo .index.")
+                yield "\n".join(infos)
             else:
-                result += "El modelo funciona para inferencia, pero no tiene el archivo .index."
+                infos.append("\nEl modelo funciona para inferencia, pero no tiene el archivo .index.")
+                yield "\n".join(infos)
         if D_file and G_file:
             if result:
                 result += "\n"
-            result += "El modelo puede ser reentrenado."
+            infos.append("\nEl modelo puede ser reentrenado.")
+            yield "\n".join(infos)
         
         os.chdir(parent_path)    
         return result
