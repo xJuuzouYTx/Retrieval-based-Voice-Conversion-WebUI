@@ -18,6 +18,7 @@ import threading
 from random import shuffle
 from subprocess import Popen
 from time import sleep
+import easy_infer
 
 import faiss
 import ffmpeg
@@ -178,6 +179,9 @@ def vc_single(
         return "You need to upload an audio", None
     f0_up_key = int(f0_up_key)
     try:
+        parent_dir = easy_infer.find_parent(".",input_audio_path)
+        input_audio_path = parent_dir+'/'+input_audio_path
+        print(f"Cargando audio: {input_audio_path}")
         audio = load_audio(input_audio_path, 16000)
         audio_max = np.abs(audio).max() / 0.95
         if audio_max > 1:
@@ -449,12 +453,12 @@ def get_vc(sid, to_return_protect0, to_return_protect1):
         }
     else:
         to_return_protect0 = {
-            "visible": True,
+            "visible": False,
             "value": to_return_protect0,
             "__type__": "update",
         }
         to_return_protect1 = {
-            "visible": True,
+            "visible": False,
             "value": to_return_protect1,
             "__type__": "update",
         }
@@ -1617,8 +1621,20 @@ def get_presets():
     
     return preset_names
 
+# Inference easy-infer
+audio_files=[]
+for filename in os.listdir("./audios"):
+    if filename.endswith(('.wav','.mp3')):
+        audio_files.append(filename)
+        
+def get_name():
+    if len(audio_files) > 0:
+        return sorted(audio_files)[0]
+    else:
+        return ''
+    
 with gr.Blocks(theme=gr.themes.Soft()) as app:
-    gr.HTML("<h1> The Mangio-RVC-Fork 💻 </h1>")
+    gr.HTML("<h1> The Mangio-RVC-Fork - IA Hispano - Juuxn 💻 </h1>")
     gr.Markdown(
         value=i18n(
             "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>使用需遵守的协议-LICENSE.txt</b>."
@@ -1636,7 +1652,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
 
             # Other RVC stuff
             with gr.Row():
-                sid0 = gr.Dropdown(label=i18n("推理音色"), choices=sorted(names))
+                sid0 = gr.Dropdown(label=i18n("1. Selecciona el modelo"), choices=sorted(names))
                 refresh_button = gr.Button(i18n("刷新音色列表和索引路径"), variant="primary")
                 clean_button = gr.Button(i18n("卸载音色省显存"), variant="primary")
                 spk_item = gr.Slider(
@@ -1658,9 +1674,25 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         vc_transform0 = gr.Number(
                             label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"), value=0
                         )
-                        input_audio0 = gr.Textbox(
-                            label=i18n("输入待处理音频文件路径(默认是正确格式示例)"),
-                            value="E:\\codes\\py39\\test-20230416b\\todo-songs\\冬之花clip1.wav",
+                        with gr.Row():
+                            dropbox = gr.File(label="Arrastra tu audio aqui y dale al botón de refresh")
+                        with gr.Row():
+                            record_button=gr.Audio(source="microphone", label="O graba un audio.", type="filepath")
+                        with gr.Row():
+                        #input_audio0 = gr.Textbox(label="Enter the Path to the Audio File to be Processed (e.g. /content/youraudio.wav)",value="/content/youraudio.wav")
+                            input_audio0 = gr.Dropdown(choices=sorted(audio_files), label="2. Selecciona tu audio.", value=get_name())
+                            dropbox.upload(fn=easy_infer.save_to_wav2, inputs=[dropbox], outputs=[input_audio0])
+                            dropbox.upload(fn=easy_infer.change_choices2, inputs=[], outputs=[input_audio0])
+                            refresh_button2 = gr.Button("Refresh", variant="primary", size='sm')
+                            refresh_button2.click(fn=easy_infer.change_choices2, inputs=[], outputs=[input_audio0])
+                            record_button.change(fn=easy_infer.save_to_wav, inputs=[record_button], outputs=[input_audio0])
+                            record_button.change(fn=easy_infer.change_choices2, inputs=[], outputs=[input_audio0])
+                                
+                    with gr.Column():
+                        file_index2 = gr.Dropdown(
+                            label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                            choices=sorted(index_paths),
+                            interactive=True,
                         )
                         f0method0 = gr.Radio(
                             label=i18n(
@@ -1685,17 +1717,14 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             value=3,
                             step=1,
                             interactive=True,
+                            visible=False
                         )
-                    with gr.Column():
+                        
                         file_index1 = gr.Textbox(
                             label=i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
                             value="",
                             interactive=True,
-                        )
-                        file_index2 = gr.Dropdown(
-                            label=i18n("自动检测index路径,下拉式选择(dropdown)"),
-                            choices=sorted(index_paths),
-                            interactive=True,
+                            visible=False
                         )
                         refresh_button.click(
                             fn=change_choices, inputs=[], outputs=[sid0, file_index2]
@@ -1711,38 +1740,47 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             label=i18n("检索特征占比"),
                             value=0.88,
                             interactive=True,
+                            visible=False
                         )
-                    with gr.Column():
-                        resample_sr0 = gr.Slider(
-                            minimum=0,
-                            maximum=48000,
-                            label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
-                            value=0,
-                            step=1,
-                            interactive=True,
-                        )
-                        rms_mix_rate0 = gr.Slider(
-                            minimum=0,
-                            maximum=1,
-                            label=i18n("输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"),
-                            value=1,
-                            interactive=True,
-                        )
-                        protect0 = gr.Slider(
-                            minimum=0,
-                            maximum=0.5,
-                            label=i18n(
-                                "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
-                            ),
-                            value=0.33,
-                            step=0.01,
-                            interactive=True,
-                        )
-                    f0_file = gr.File(label=i18n("F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"))
-                    but0 = gr.Button(i18n("转换"), variant="primary")
+                    # with gr.Column():
+                    resample_sr0 = gr.Slider(
+                        minimum=0,
+                        maximum=48000,
+                        label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                        value=0,
+                        step=1,
+                        interactive=True,
+                        visible=False
+                    )
+                    rms_mix_rate0 = gr.Slider(
+                        minimum=0,
+                        maximum=1,
+                        label=i18n("输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"),
+                        value=1,
+                        interactive=True,
+                        visible=False
+                    )
+                    protect0 = gr.Slider(
+                        minimum=0,
+                        maximum=0.5,
+                        label=i18n(
+                            "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
+                        ),
+                        value=0.33,
+                        step=0.01,
+                        interactive=True,
+                        visible=False
+                    )
+                        
+                    f0_file = gr.File(label=i18n("F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"),visible=False)
                     with gr.Row():
-                        vc_output1 = gr.Textbox(label=i18n("输出信息"))
-                        vc_output2 = gr.Audio(label=i18n("输出音频(右下角三个点,点了可以下载)"))
+                        but0 = gr.Button(i18n("转换"), variant="primary")
+                        with gr.Column():
+                            with gr.Row():
+                                vc_output1 = gr.Textbox(label=i18n("输出信息"))
+                            with gr.Row():
+                                vc_output2 = gr.Audio(label=i18n("输出音频(右下角三个点,点了可以下载)"))
+                        
                     but0.click(
                         vc_single,
                         [
@@ -1763,23 +1801,24 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         ],
                         [vc_output1, vc_output2],
                     )
-            with gr.Group():
+            with gr.Group(visible=False):
                 gr.Markdown(
-                    value=i18n("批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. ")
+                    value=i18n("批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. "), visible=False
                 )
                 with gr.Row():
                     with gr.Column():
                         vc_transform1 = gr.Number(
-                            label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"), value=0
+                            label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"), value=0, visible=False
                         )
-                        opt_input = gr.Textbox(label=i18n("指定输出文件夹"), value="opt")
+                        opt_input = gr.Textbox(label=i18n("指定输出文件夹"), value="opt", visible=False)
                         f0method1 = gr.Radio(
                             label=i18n(
-                                "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU"
+                                "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU",
                             ),
                             choices=["pm", "harvest", "crepe"],
                             value="pm",
                             interactive=True,
+                            visible=False
                         )
                         filter_radius1 = gr.Slider(
                             minimum=0,
@@ -1788,22 +1827,25 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             value=3,
                             step=1,
                             interactive=True,
+                            visible=False
                         )
                     with gr.Column():
                         file_index3 = gr.Textbox(
                             label=i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
                             value="",
                             interactive=True,
+                            visible=False
                         )
                         file_index4 = gr.Dropdown(
                             label=i18n("自动检测index路径,下拉式选择(dropdown)"),
                             choices=sorted(index_paths),
                             interactive=True,
+                            visible=False
                         )
                         refresh_button.click(
                             fn=lambda: change_choices()[1],
                             inputs=[],
-                            outputs=file_index4,
+                            outputs=file_index4
                         )
                         # file_big_npy2 = gr.Textbox(
                         #     label=i18n("特征文件路径"),
@@ -1816,6 +1858,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             label=i18n("检索特征占比"),
                             value=1,
                             interactive=True,
+                            visible=False
                         )
                     with gr.Column():
                         resample_sr1 = gr.Slider(
@@ -1825,6 +1868,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             value=0,
                             step=1,
                             interactive=True,
+                            visible=False
                         )
                         rms_mix_rate1 = gr.Slider(
                             minimum=0,
@@ -1832,6 +1876,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             label=i18n("输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"),
                             value=1,
                             interactive=True,
+                            visible=False
                         )
                         protect1 = gr.Slider(
                             minimum=0,
@@ -1842,14 +1887,17 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             value=0.33,
                             step=0.01,
                             interactive=True,
+                            visible=False
                         )
                     with gr.Column():
                         dir_input = gr.Textbox(
                             label=i18n("输入待处理音频文件夹路径(去文件管理器地址栏拷就行了)"),
                             value="E:\codes\py39\\test-20230416b\\todo-songs",
+                            visible=False
                         )
                         inputs = gr.File(
-                            file_count="multiple", label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹")
+                            file_count="multiple", label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
+                            visible=False
                         )
                     with gr.Row():
                         format1 = gr.Radio(
@@ -1857,9 +1905,10 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             choices=["wav", "flac", "mp3", "m4a"],
                             value="flac",
                             interactive=True,
+                            visible=False
                         )
-                        but1 = gr.Button(i18n("转换"), variant="primary")
-                        vc_output3 = gr.Textbox(label=i18n("输出信息"))
+                        but1 = gr.Button(i18n("转换"), variant="primary",visible=False)
+                        vc_output3 = gr.Textbox(label=i18n("输出信息"), visible=False)
                     but1.click(
                         vc_multi,
                         [
@@ -2173,82 +2222,82 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     )
 
         with gr.TabItem(i18n("ckpt处理")):
-            with gr.Group():
-                gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
-                with gr.Row():
-                    ckpt_a = gr.Textbox(label=i18n("A模型路径"), value="", interactive=True)
-                    ckpt_b = gr.Textbox(label=i18n("B模型路径"), value="", interactive=True)
-                    alpha_a = gr.Slider(
-                        minimum=0,
-                        maximum=1,
-                        label=i18n("A模型权重"),
-                        value=0.5,
-                        interactive=True,
-                    )
-                with gr.Row():
-                    sr_ = gr.Radio(
-                        label=i18n("目标采样率"),
-                        choices=["40k", "48k"],
-                        value="40k",
-                        interactive=True,
-                    )
-                    if_f0_ = gr.Radio(
-                        label=i18n("模型是否带音高指导"),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("是"),
-                        interactive=True,
-                    )
-                    info__ = gr.Textbox(
-                        label=i18n("要置入的模型信息"), value="", max_lines=8, interactive=True
-                    )
-                    name_to_save0 = gr.Textbox(
-                        label=i18n("保存的模型名不带后缀"),
-                        value="",
-                        max_lines=1,
-                        interactive=True,
-                    )
-                    version_2 = gr.Radio(
-                        label=i18n("模型版本型号"),
-                        choices=["v1", "v2"],
-                        value="v1",
-                        interactive=True,
-                    )
-                with gr.Row():
-                    but6 = gr.Button(i18n("融合"), variant="primary")
-                    info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                but6.click(
-                    merge,
-                    [
-                        ckpt_a,
-                        ckpt_b,
-                        alpha_a,
-                        sr_,
-                        if_f0_,
-                        info__,
-                        name_to_save0,
-                        version_2,
-                    ],
-                    info4,
-                )  # def merge(path1,path2,alpha1,sr,f0,info):
-            with gr.Group():
-                gr.Markdown(value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)"))
-                with gr.Row():
-                    ckpt_path0 = gr.Textbox(
-                        label=i18n("模型路径"), value="", interactive=True
-                    )
-                    info_ = gr.Textbox(
-                        label=i18n("要改的模型信息"), value="", max_lines=8, interactive=True
-                    )
-                    name_to_save1 = gr.Textbox(
-                        label=i18n("保存的文件名, 默认空为和源文件同名"),
-                        value="",
-                        max_lines=8,
-                        interactive=True,
-                    )
-                with gr.Row():
-                    but7 = gr.Button(i18n("修改"), variant="primary")
-                    info5 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                but7.click(change_info, [ckpt_path0, info_, name_to_save1], info5)
+            # with gr.Group():
+            #     gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
+            #     with gr.Row():
+            #         ckpt_a = gr.Textbox(label=i18n("A模型路径"), value="", interactive=True)
+            #         ckpt_b = gr.Textbox(label=i18n("B模型路径"), value="", interactive=True)
+            #         alpha_a = gr.Slider(
+            #             minimum=0,
+            #             maximum=1,
+            #             label=i18n("A模型权重"),
+            #             value=0.5,
+            #             interactive=True,
+            #         )
+            #     with gr.Row():
+            #         sr_ = gr.Radio(
+            #             label=i18n("目标采样率"),
+            #             choices=["40k", "48k"],
+            #             value="40k",
+            #             interactive=True,
+            #         )
+            #         if_f0_ = gr.Radio(
+            #             label=i18n("模型是否带音高指导"),
+            #             choices=[i18n("是"), i18n("否")],
+            #             value=i18n("是"),
+            #             interactive=True,
+            #         )
+            #         info__ = gr.Textbox(
+            #             label=i18n("要置入的模型信息"), value="", max_lines=8, interactive=True
+            #         )
+            #         name_to_save0 = gr.Textbox(
+            #             label=i18n("保存的模型名不带后缀"),
+            #             value="",
+            #             max_lines=1,
+            #             interactive=True,
+            #         )
+            #         version_2 = gr.Radio(
+            #             label=i18n("模型版本型号"),
+            #             choices=["v1", "v2"],
+            #             value="v1",
+            #             interactive=True,
+            #         )
+            #     with gr.Row():
+            #         but6 = gr.Button(i18n("融合"), variant="primary")
+            #         info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+            #     but6.click(
+            #         merge,
+            #         [
+            #             ckpt_a,
+            #             ckpt_b,
+            #             alpha_a,
+            #             sr_,
+            #             if_f0_,
+            #             info__,
+            #             name_to_save0,
+            #             version_2,
+            #         ],
+            #         info4,
+            #     )  # def merge(path1,path2,alpha1,sr,f0,info):
+            # with gr.Group():
+            #     gr.Markdown(value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)"))
+            #     with gr.Row():
+            #         ckpt_path0 = gr.Textbox(
+            #             label=i18n("模型路径"), value="", interactive=True
+            #         )
+            #         info_ = gr.Textbox(
+            #             label=i18n("要改的模型信息"), value="", max_lines=8, interactive=True
+            #         )
+            #         name_to_save1 = gr.Textbox(
+            #             label=i18n("保存的文件名, 默认空为和源文件同名"),
+            #             value="",
+            #             max_lines=8,
+            #             interactive=True,
+            #         )
+            #     with gr.Row():
+            #         but7 = gr.Button(i18n("修改"), variant="primary")
+            #         info5 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+            #     but7.click(change_info, [ckpt_path0, info_, name_to_save1], info5)
             with gr.Group():
                 gr.Markdown(value=i18n("查看模型信息(仅支持weights文件夹下提取的小模型文件)"))
                 with gr.Row():
@@ -2305,32 +2354,40 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     info7,
                 )
 
-        with gr.TabItem(i18n("Onnx导出")):
-            with gr.Row():
-                ckpt_dir = gr.Textbox(label=i18n("RVC模型路径"), value="", interactive=True)
-            with gr.Row():
-                onnx_dir = gr.Textbox(
-                    label=i18n("Onnx输出路径"), value="", interactive=True
-                )
-            with gr.Row():
-                infoOnnx = gr.Label(label="info")
-            with gr.Row():
-                butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
-            butOnnx.click(export_onnx, [ckpt_dir, onnx_dir], infoOnnx)
+        # with gr.TabItem(i18n("Onnx导出")):
+        #     with gr.Row():
+        #         ckpt_dir = gr.Textbox(label=i18n("RVC模型路径"), value="", interactive=True)
+        #     with gr.Row():
+        #         onnx_dir = gr.Textbox(
+        #             label=i18n("Onnx输出路径"), value="", interactive=True
+        #         )
+        #     with gr.Row():
+        #         infoOnnx = gr.Label(label="info")
+        #     with gr.Row():
+        #         butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
+        #     butOnnx.click(export_onnx, [ckpt_dir, onnx_dir], infoOnnx)
 
-        tab_faq = i18n("常见问题解答")
-        with gr.TabItem(tab_faq):
-            try:
-                if tab_faq == "常见问题解答":
-                    with open("docs/faq.md", "r", encoding="utf8") as f:
-                        info = f.read()
-                else:
-                    with open("docs/faq_en.md", "r", encoding="utf8") as f:
-                        info = f.read()
-                gr.Markdown(value=info)
-            except:
-                gr.Markdown(traceback.format_exc())
-
+        # tab_faq = i18n("常见问题解答")
+        # with gr.TabItem(tab_faq):
+        #     try:
+        #         if tab_faq == "常见问题解答":
+        #             with open("docs/faq.md", "r", encoding="utf8") as f:
+        #                 info = f.read()
+        #         else:
+        #             with open("docs/faq_en.md", "r", encoding="utf8") as f:
+        #                 info = f.read()
+        #         gr.Markdown(value=info)
+        #     except:
+        #         gr.Markdown(traceback.format_exc())
+                
+        with gr.TabItem("Descargar Modelo"):
+            with gr.Row():
+                url=gr.Textbox(label="Url del modelo:")
+            with gr.Row():
+                download_button=gr.Button(label="Descargar")
+            with gr.Row():
+                status_bar=gr.Textbox(label="")
+                download_button.click(fn=easy_infer.load_downloaded_model, inputs=[url], outputs=[status_bar])
 
     #region Mangio Preset Handler Region
     def save_preset(
