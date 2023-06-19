@@ -263,18 +263,18 @@ def load_dowloaded_backup(url):
     infos = []
     print("Descargando en...")
     infos.append(f"\nDescargando en {logs_path}")
-    "\n".join(infos)
+    yield "\n".join(infos)
     try:
         os.chdir(logs_path)
         filename = gdown.download_folder(url=url,quiet=True, remaining_ok=True)
         infos.append(f"\nBackup cargado: {filename}")
-        "\n".join(infos)
+        yield "\n".join(infos)
     except Exception as e:
         print(e)
         infos.append("\nOcurrió un error al descargar")
-        "\n".join(infos)
+        yield "\n".join(infos)
     finally:
-        os.chdir(logs_path)
+        os.chdir(parent_path)
 
 def save_to_wav(record_button):
     if record_button is None:
