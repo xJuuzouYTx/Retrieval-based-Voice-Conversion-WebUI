@@ -90,7 +90,8 @@ def load_downloaded_model(url):
             if filename.endswith(".zip"):
                 zipfile_path = os.path.join(zips_path,filename)
                 shutil.unpack_archive(zipfile_path, unzips_path, 'zip')
-                logs_dir = os.path.join(parent_path,'logs', os.path.normpath(str(zipfile_path).replace(".zip","")))
+                model_name = os.path.basename(zipfile_path)
+                logs_dir = os.path.join(parent_path,'logs', os.path.normpath(str(model_name).replace(".zip","")))
                 print("Modelo descomprimido correctamente. Copiando a logs...")
                 infos.append("Modelo descomprimido correctamente. Copiando a logs...")
                 yield "\n".join(infos)
@@ -168,7 +169,7 @@ def load_downloaded_model(url):
     except Exception as e:
         os.chdir(parent_path)
         print(e)
-        return "Ocurrio un error descargando el modelo"
+        yield "Ocurrio un error descargando el modelo"
     finally:
         os.chdir(parent_path)
       
