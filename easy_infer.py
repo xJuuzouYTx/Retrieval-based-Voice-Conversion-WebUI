@@ -242,7 +242,9 @@ def load_dowloaded_dataset(url):
                 shutil.unpack_archive(file_path, datasets_path, 'zip')
                 new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
                 os.rename(file_path, new_name)
-        yield "\n".join("Dataset cargado correctamente.")
+        
+        infos.append("Dataset cargado correctamente.")
+        yield "\n".join(infos)
     except Exception as e:
         os.chdir(parent_path)
         print(e)
