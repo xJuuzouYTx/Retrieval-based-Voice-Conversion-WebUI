@@ -918,10 +918,10 @@ def train_index(exp_dir1, version19):
         else "%s/3_feature768" % (exp_dir)
     )
     if not os.path.exists(feature_dir):
-        return "请先进行特征提取!"
+        return "Realice primero la extracción de características!"
     listdir_res = list(os.listdir(feature_dir))
     if len(listdir_res) == 0:
-        return "请先进行特征提取！"
+        return "¡Por favor, haga la extracción de características primero!"
     infos = []
     npys = []
     for name in sorted(listdir_res):
@@ -959,7 +959,7 @@ def train_index(exp_dir1, version19):
     yield "\n".join(infos)
     index = faiss.index_factory(256 if version19 == "v1" else 768, "IVF%s,Flat" % n_ivf)
     # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
-    infos.append("training")
+    infos.append("Entrenando indice...")
     yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)  #
     index_ivf.nprobe = 1
@@ -970,7 +970,7 @@ def train_index(exp_dir1, version19):
         % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
     )
     # faiss.write_index(index, '%s/trained_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
-    infos.append("adding")
+    infos.append("Añadiendo...")
     yield "\n".join(infos)
     batch_size_add = 8192
     for i in range(0, big_npy.shape[0], batch_size_add):
@@ -981,7 +981,7 @@ def train_index(exp_dir1, version19):
         % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
     )
     infos.append(
-        "成功构建索引，added_IVF%s_Flat_nprobe_%s_%s_%s.index"
+        "Indice creado con exito, added_IVF%s_Flat_nprobe_%s_%s_%s.index"
         % (n_ivf, index_ivf.nprobe, exp_dir1, version19)
     )
     # faiss.write_index(index, '%s/added_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
@@ -2075,19 +2075,22 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     value="40k",
                     interactive=True,
                 )
-                if_f0_3 = gr.Radio(
-                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
-                    choices=[True, False],
-                    value=True,
-                    interactive=True,
-                )
                 version19 = gr.Radio(
                     label=i18n("版本"),
                     choices=["v1", "v2"],
                     value="v1",
                     interactive=True,
-                    visible=True,
+                    visible=True
                 )
+                
+                if_f0_3 = gr.Radio(
+                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    choices=[True, False],
+                    value=True,
+                    interactive=True,
+                    visible=False
+                )
+                
                 np7 = gr.Slider(
                     minimum=0,
                     maximum=config.n_cpu,
@@ -2095,6 +2098,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     label=i18n("提取音高和处理数据使用的CPU进程数"),
                     value=int(np.ceil(config.n_cpu / 1.5)),
                     interactive=True,
+                    visible=False
                 )
             with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
                 gr.Markdown(
@@ -2198,6 +2202,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         choices=[i18n("是"), i18n("否")],
                         value=i18n("否"),
                         interactive=True,
+                        visible=False
                     )
                     if_save_every_weights18 = gr.Radio(
                         label=i18n("是否在每次保存时间点将最终小模型保存至weights文件夹"),
@@ -2205,6 +2210,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         value=i18n("否"),
                         interactive=True,
                     )
+                    
                 with gr.Row():
                     pretrained_G14 = gr.Textbox(
                         label=i18n("加载预训练底模G路径"),
@@ -2238,13 +2244,18 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     )
                     but3 = gr.Button(i18n("训练模型"), variant="primary")
                     but6 = gr.Button("Detener entrenamiento", variant="primary")
-                    but4 = gr.Button(i18n("训练特征索引"), variant="primary")
+                    
                     # but5 = gr.Button(i18n("一键训练"), variant="primary")
-                    with gr.Row():
+                    
+                    with gr.Column(scale=0):
+                        gr.Markdown(value="<br>")
+                        gr.Markdown(value="### Genere el indice antes de guardar.")
+                        but4 = gr.Button(i18n("训练特征索引"), variant="primary")
+                        gr.Markdown(value="### Guarde su modelo una vez el entrenamiento termina.")
                         save_action = gr.Dropdown(label="Tipo de guardado", choices=["Guardar todo","Guardar D y G", "Guardar voz"], value="Guardar voz", interactive=True)
                         but7 = gr.Button("Guardar modelo", variant="primary")
                         
-                    info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
+                    info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=20)
                     but3.click(
                         click_train,
                         [

@@ -256,82 +256,95 @@ def load_dowloaded_dataset(url):
             yield "\n".join(infos)
 
 def save_model(modelname, save_action):
-    infos = []
-    
+       
     parent_path = find_folder_parent(".", "pretrained_v2")
     zips_path = os.path.join(parent_path, 'zips')
     dst = os.path.join(zips_path,modelname)
     logs_path = os.path.join(parent_path, 'logs', modelname)
     weights_path = os.path.join(parent_path, 'weights', f"{modelname}.pth")
     save_folder = parent_path
+    infos = []    
     
-    if not 'content' in parent_path:
-        save_folder = os.path.join(parent_path, 'RVC')
-    else:
-        save_folder = '/content/drive/MyDrive/RVC'
-    
-    infos.append(f"Guardando modelo en: {save_folder}")
-    yield "\n".join(infos)
-    
-    # Si no existe el folder RVC para guardar los modelos
-    if not os.path.exists(save_folder):
-        os.mkdir(save_folder)
-    
-    # Si ya existe el folders zips borro su contenido por si acaso
-    if os.path.exists(zips_path):
-        shutil.rmtree(zips_path)
+    try:
+        if not os.path.exists(logs_path):
+            raise Exception("No model found.")
         
-    os.mkdir(zips_path)
-    
-    added_file = glob.glob(os.path.join(logs_path, "added_*.index"))
-    d_file = glob.glob(os.path.join(logs_path, "D_*.pth"))
-    g_file = glob.glob(os.path.join(logs_path, "G_*.pth"))
-    
-    if save_action == "Guardar todo":
-        shutil.copytree(logs_path, dst)
-    else:
-        # Si no existe el folder donde se va a comprimir el modelo
-        if not os.path.exists(dst):
-            os.mkdir(dst)
-        
-    if save_action == "Guardar D y G":
-
-        if len(d_file) > 0:
-            shutil.copy(d_file[0], dst)
-        if len(g_file) > 0:
-            shutil.copy(g_file[0], dst)    
-        if len(added_file) > 0:
-            shutil.copy(added_file[0], dst)
-            
-    if save_action == "Guardar voz":
-        pass
-        if len(added_file) > 0:
-            shutil.copy(added_file[0], dst)
+        if not 'content' in parent_path:
+            save_folder = os.path.join(parent_path, 'RVC')
         else:
+            save_folder = '/content/drive/MyDrive/RVC'
+        
+        infos.append(f"Guardando modelo en: {save_folder}")
+        yield "\n".join(infos)
+        
+        # Si no existe el folder RVC para guardar los modelos
+        if not os.path.exists(save_folder):
+            os.mkdir(save_folder)
+        
+        # Si ya existe el folders zips borro su contenido por si acaso
+        if os.path.exists(zips_path):
             shutil.rmtree(zips_path)
-            #raise gr.Error("¡No ha generado el archivo added_*.index!")
-    
-    yield "\n".join(infos)
-    # Si no existe el archivo del modelo no copiarlo
-    if not os.path.exists(weights_path):
+            
+        os.mkdir(zips_path)
+        
+        added_file = glob.glob(os.path.join(logs_path, "added_*.index"))
+        d_file = glob.glob(os.path.join(logs_path, "D_*.pth"))
+        g_file = glob.glob(os.path.join(logs_path, "G_*.pth"))
+        
+        if save_action == "Guardar todo":
+            shutil.copytree(logs_path, dst)
+        else:
+            # Si no existe el folder donde se va a comprimir el modelo
+            if not os.path.exists(dst):
+                os.mkdir(dst)
+            
+        if save_action == "Guardar D y G":
+
+            if len(d_file) > 0:
+                shutil.copy(d_file[0], dst)
+            if len(g_file) > 0:
+                shutil.copy(g_file[0], dst)    
+            if len(added_file) > 0:
+                shutil.copy(added_file[0], dst)
+                
+        if save_action == "Guardar voz":
+            pass
+            if len(added_file) > 0:
+                shutil.copy(added_file[0], dst)
+            else:
+                shutil.rmtree(zips_path)
+                #raise gr.Error("¡No ha generado el archivo added_*.index!")
+        
+        yield "\n".join(infos)
+        # Si no existe el archivo del modelo no copiarlo
+        if not os.path.exists(weights_path):
+            shutil.rmtree(zips_path)
+            #raise gr.Error("¡No ha generado el modelo pequeño!")
+        else:
+            shutil.copy(weights_path, dst)
+        
+        yield "\n".join(infos)
+        infos.append("\nEsto puede tomar unos minutos, por favor espere...")    
+        infos.append("\nComprimiendo modelo...")
+        yield "\n".join(infos)
+        
+        shutil.make_archive(os.path.join(zips_path,f"{modelname}"), 'zip', zips_path)
+        shutil.move(os.path.join(zips_path,f"{modelname}.zip"), os.path.join(save_folder, f'{modelname}.zip'))
+        
         shutil.rmtree(zips_path)
-        #raise gr.Error("¡No ha generado el modelo pequeño!")
-    else:
-        shutil.copy(weights_path, dst)
-    
-    yield "\n".join(infos)
-    infos.append("\nEsto puede tomar unos minutos, por favor espere...")    
-    infos.append("\nComprimiendo modelo...")
-    yield "\n".join(infos)
-    
-    shutil.make_archive(os.path.join(zips_path,f"{modelname}"), 'zip', zips_path)
-    shutil.move(os.path.join(zips_path,f"{modelname}.zip"), os.path.join(save_folder, f'{modelname}.zip'))
-    
-    shutil.rmtree(zips_path)
-    #shutil.rmtree(zips_path)
-    
-    infos.append("\n¡Modelo guardado!")
-    yield "\n".join(infos)
+        #shutil.rmtree(zips_path)
+        
+        infos.append("\n¡Modelo guardado!")
+        yield "\n".join(infos)
+        
+    except Exception as e:
+        print(e)
+        if "No model found." in str(e):
+            infos.append("El modelo que intenta guardar no existe, asegurese de escribir el nombre correctamente.")
+        else:
+            infos.append("Ocurrio un error guardando el modelo")
+            
+        yield "\n".join(infos)
     
 def load_dowloaded_backup(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
