@@ -163,7 +163,7 @@ def load_downloaded_model(url):
         if D_file and G_file:
             if result:
                 result += "\n"
-            infos.append("\nEl modelo puede ser reentrenado.")
+            infos.append("El modelo puede ser reentrenado.")
             yield "\n".join(infos)
         
         os.chdir(parent_path)    
@@ -171,7 +171,10 @@ def load_downloaded_model(url):
     except Exception as e:
         os.chdir(parent_path)
         print(e)
-        yield "Ocurrio un error descargando el modelo"
+        if "Too many users have viewed or downloaded this file recently." in str(e):
+            yield "El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace."    
+        else:
+            yield "Ocurrio un error descargando el modelo"
     finally:
         os.chdir(parent_path)
       
