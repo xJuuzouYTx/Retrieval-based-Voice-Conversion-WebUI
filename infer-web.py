@@ -2104,7 +2104,8 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                 )
                 with gr.Row():
                     trainset_dir4 = gr.Dropdown(choices=sorted(datasets), label="Selecciona tu dataset.", value=get_dataset())
-                    
+                    btn_update_dataset_list = gr.Button("Actualizar listado", variant="primary")
+
                     spk_id5 = gr.Slider(
                         minimum=0,
                         maximum=4,
@@ -2113,6 +2114,11 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         value=0,
                         interactive=True,
                     )
+                    
+                    btn_update_dataset_list.click(
+                        update_dataset_list, [spk_id5], trainset_dir4
+                    )
+                    
                     but1 = gr.Button(i18n("处理数据"), variant="primary")
                     info1 = gr.Textbox(label=i18n("输出信息"), value="")
                     but1.click(
