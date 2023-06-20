@@ -7,6 +7,7 @@ import unicodedata
 import glob
 import gradio as gr
 import gdown
+import zipfile
 
 def find_parent(search_dir, file_name):
     for dirpath, dirnames, filenames in os.walk(search_dir):
@@ -34,6 +35,7 @@ def download_from_url(url):
     zips_path = os.path.join(parent_path, 'zips')
     
     if url != '':
+        print(f"Descargando archivo: {url}")
         if "drive.google.com" in url:
             if "file/d/" in url:
                 file_id = url.split("file/d/")[1].split("/")[0]
@@ -44,7 +46,9 @@ def download_from_url(url):
             
             if file_id:
                 os.chdir('./zips')
-                subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"])
+                result = subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"], capture_output=True, text=True)
+                if "Too many users have viewed or downloaded this file recently" in str(result.stderr):
+                    return "demasiado uso"
                 
         elif "mega.nz" in url:
             if "#!" in url:
@@ -61,11 +65,16 @@ def download_from_url(url):
             subprocess.run(["wget", url])
             
         os.chdir(parent_path)
+        print("Descarga completa.")
         return "downloaded"
     else:
         return None
                 
-
+class error_message(Exception):
+    def __init__(self, mensaje):
+        self.mensaje = mensaje
+        super().__init__(mensaje)
+        
 def load_downloaded_model(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
     try:
@@ -89,11 +98,13 @@ def load_downloaded_model(url):
             print("No se ha podido descargar el modelo.")
             infos.append("No se ha podido descargar el modelo.")
             yield "\n".join(infos)
-        else:
+        elif download_file == "downloaded":
             print("Modelo descargado correctamente. Procediendo con la extracción...")
             infos.append("Modelo descargado correctamente. Procediendo con la extracción...")
             yield "\n".join(infos)
-            
+        elif download_file == "demasiado uso":
+            raise Exception("demasiado uso")
+        
         # Descomprimir archivos descargados
         for filename in os.listdir(zips_path):
             if filename.endswith(".zip"):
@@ -164,14 +175,17 @@ def load_downloaded_model(url):
         result = ""
         if model_file:
             if index_file:
+                print("El modelo funciona para inferencia, y tiene el archivo .index.")
                 infos.append("\nEl modelo funciona para inferencia, y tiene el archivo .index.")
                 yield "\n".join(infos)
             else:
+                print("El modelo funciona para inferencia, pero no tiene el archivo .index.")
                 infos.append("\nEl modelo funciona para inferencia, pero no tiene el archivo .index.")
                 yield "\n".join(infos)
         if D_file and G_file:
             if result:
                 result += "\n"
+            print("El modelo puede ser reentrenado.")
             infos.append("El modelo puede ser reentrenado.")
             yield "\n".join(infos)
         
@@ -179,17 +193,18 @@ def load_downloaded_model(url):
         return result
     except Exception as e:
         os.chdir(parent_path)
-        print(e)
-        if "Too many users have viewed or downloaded this file recently." in str(e):
+        if "demasiado uso" in str(e):
+            print("Demasiados usuarios han visto o descargado este archivo recientemente. Por favor, intenta acceder al archivo nuevamente más tarde. Si el archivo al que estás intentando acceder es especialmente grande o está compartido con muchas personas, puede tomar hasta 24 horas para poder ver o descargar el archivo. Si aún no puedes acceder al archivo después de 24 horas, ponte en contacto con el administrador de tu dominio.")
             yield "El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace."    
         else:
+            print(e)
             yield "Ocurrio un error descargando el modelo"
     finally:
         os.chdir(parent_path)
       
 def load_dowloaded_dataset(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
-    
+    infos = []
     try:
         zips_path = os.path.join(parent_path, 'zips')
         unzips_path = os.path.join(parent_path, 'unzips')
@@ -207,21 +222,36 @@ def load_dowloaded_dataset(url):
         
         download_file = download_from_url(url)
         if not download_file:
-            return "No se ha podido descargar el dataset."
+            raise Exception("No se ha podido descargar el dataset.")
+        else:
+            infos.append("Dataset descargado. Procediendo con la extracción...")
+            yield "\n".join(infos)
 
         zip_path = os.listdir(zips_path)
         for file in zip_path:
             if file.endswith('.zip'):
                 file_path = os.path.join(zips_path, file)
+                with zipfile.ZipFile(file_path, "r") as archivo_zip:
+                    lista_archivos = archivo_zip.namelist()
+                    if lista_archivos[0].endswith('/') and any(f.startswith(lista_archivos[0]) for f in lista_archivos[1:]):
+                        print("El archivo ZIP contiene un solo directorio y todos los archivos están dentro de ese directorio.")
+                    else:
+                        print("El archivo ZIP fue comprimido fuera de un folder. Intentando proceder con la extracción....")
+                        datasets_path = os.path.join(datasets_path, file.replace(".zip","").replace(" ","").replace("-","_"))
+
                 shutil.unpack_archive(file_path, datasets_path, 'zip')
                 new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
                 os.rename(file_path, new_name)
-                
-        return "Dataset descargado."
+        yield "\n".join("Dataset cargado correctamente.")
     except Exception as e:
         os.chdir(parent_path)
         print(e)
-        return "Error al descargar"
+        if "No se ha podido descargar el dataset." in str(e):
+            infos.append("Ocurrio un error al descargar, intentalo de nuevo o usa otro enlace.")
+            yield "\n".join(infos)
+        else:
+            infos.append("Ocurrio un error desconocido.")
+            yield "\n".join(infos)
 
 def save_model(modelname, save_action):
     infos = []
@@ -314,7 +344,9 @@ def load_dowloaded_backup(url):
         infos.append(f"\nBackup cargado: {filename}")
         yield "\n".join(infos)
     except Exception as e:
+        print("********")
         print(e)
+        print("********")
         infos.append("\nOcurrió un error al descargar")
         yield "\n".join(infos)
     finally:
