@@ -20,6 +20,15 @@ def find_folder_parent(search_dir, folder_name):
             return os.path.abspath(dirpath)
     return None
 
+def get_drive_folder_id(url):
+    if "drive.google.com" in url:
+        if "file/d/" in url:
+            file_id = url.split("file/d/")[1].split("/")[0]
+        elif "id=" in url:
+            file_id = url.split("id=")[1].split("&")[0]
+        else:
+            return None
+
 def download_from_url(url):
     parent_path = find_folder_parent(".", "pretrained_v2")
     zips_path = os.path.join(parent_path, 'zips')
@@ -268,13 +277,13 @@ def save_model(modelname, save_action):
             shutil.copy(added_file[0], dst)
         else:
             shutil.rmtree(zips_path)
-            raise gr.Error("¡No ha generado el archivo added_*.index!")
+            #raise gr.Error("¡No ha generado el archivo added_*.index!")
     
     yield "\n".join(infos)
     # Si no existe el archivo del modelo no copiarlo
     if not os.path.exists(weights_path):
         shutil.rmtree(zips_path)
-        raise gr.Error("¡No ha generado el modelo pequeño!")
+        #raise gr.Error("¡No ha generado el modelo pequeño!")
     else:
         shutil.copy(weights_path, dst)
     
