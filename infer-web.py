@@ -1249,18 +1249,75 @@ def train1key(
     )
     yield get_info_str(i18n("全流程结束！"))
 
-def stop_training(stop):
+def stop_training(save_name, sample_rate, has_pitch_guidance, version):
     global running_process
-    print("Deteniendo entrenamiento")
+    parent_folder = easy_infer.find_folder_parent(".","pretrained")
+    logs_path = os.path.join(parent_folder, "logs", save_name)
+    model_path = ""
     
-    if running_process:
-        process = psutil.Process(running_process.pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
-        running_process = None
+    infos = []
+    try:
+        if running_process:
+            print("Deteniendo entrenamiento")
+            infos.append("Deteniendo entrenamiento. \nIntentando generar modelo pequeño automaticamente...")
+            yield "\n".join(infos)
+            
+            process = psutil.Process(running_process.pid)
+            for proc in process.children(recursive=True):
+                proc.kill()
+            process.kill()
+            running_process = None
+        else:
+            infos.append("No hay ningún entrenamiento en proceso. \nIntentando generar modelo pequeño automaticamente...")
+            yield "\n".join(infos)
+        
+        if not os.path.exists(logs_path):
+            raise Exception(f"logs_path error")
+            
+        files = os.listdir(logs_path)
+        G_files = [file for file in files if file.startswith("G_") and file.endswith(".pth")]
+
+        if G_files:
+            max_G = max(int(archivo.split("_")[1].split(".")[0]) for archivo in G_files)
+            model_path = os.path.join(logs_path, f"G_{max_G}.pth")
+        
+        if not model_path:
+            raise Exception("No G file")
+        
+        print("Generando modelo pequeño.")
+        infos.append(f"\nGenerando modelo pequeño con {model_path}")
+        yield "\n".join(infos)
+        
+        extract_small_model_process = extract_small_model(
+            model_path,
+            save_name,
+            sample_rate,
+            has_pitch_guidance,
+            "",
+            version
+        )
+        
+        if extract_small_model_process == "Success.":
+            infos.append("\nModelo pequeño generado correctamente!")
+            yield "\n".join(infos)
+            print("Modelo pequeño generado correctamente!")
+        else:
+            print(str(extract_small_model_process))
+            infos.append("\nError al general el modelo pequeño!")
+            yield "\n".join(infos)
+            print("Error al general el modelo pequeño.!")
     
-    return "El entrenamiento se ha pausado."
+    except Exception as e:
+        if "No G file" in str(e):
+            infos.append("\nNo se encontró el archivo G del modelo para hacer la extracción.")
+            yield "\n".join(infos)
+        elif "logs_path error" in str(e):
+            infos.append(f"\nNo existe un modelo con el nombre {save_name}.")
+            yield "\n".join(infos)
+        else:
+            infos.append("Ocurrió un error.")
+            yield "\n".join(infos)
+            print(e)
 
 #                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path):
@@ -2277,7 +2334,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         info3,
                     )
                     but4.click(train_index, [exp_dir1, version19], info3)
-                    but6.click(stop_training, [exp_dir1], info3)
+                    but6.click(stop_training, [exp_dir1, sr2, if_f0_3, version19], info3)
                     but7.click(easy_infer.save_model, [exp_dir1, save_action], info3)
                     # but5.click(
                     #     train1key,

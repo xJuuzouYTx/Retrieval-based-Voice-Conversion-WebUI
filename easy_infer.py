@@ -327,8 +327,7 @@ def save_model(modelname, save_action):
             shutil.copy(weights_path, dst)
         
         yield "\n".join(infos)
-        infos.append("\nEsto puede tomar unos minutos, por favor espere...")    
-        infos.append("\nComprimiendo modelo...")
+        infos.append("\nEsto puede tomar unos minutos, por favor espere...")
         yield "\n".join(infos)
         
         shutil.make_archive(os.path.join(zips_path,f"{modelname}"), 'zip', zips_path)
