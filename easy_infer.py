@@ -255,8 +255,17 @@ def load_dowloaded_dataset(url):
                 
                 datasets_path = os.path.join(parent_path, 'datasets')
                 # Renombrar folder en /rvc/datatasets si tiene espacios
-                new_dataset_folder_name = os.path.join(datasets_path, foldername).replace(" ","").replace("(","").replace(")","").replace("-","_")
-                os.rename(os.path.join(datasets_path, foldername), new_dataset_folder_name)
+                old_dataset_folder_name = "carreraaa as dsdsa"
+
+                # Reemplazar espacios y otros caracteres no deseados en el nuevo nombre
+                new_dataset_folder_name = old_dataset_folder_name.replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_")
+
+                # Construir las rutas antiguas y nuevas
+                old_path = os.path.join(datasets_path, old_dataset_folder_name)
+                new_path = os.path.join(datasets_path, new_dataset_folder_name)
+
+                # Renombrar el directorio
+                os.rename(old_path, new_path)
                 
                 new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
                 os.rename(file_path, new_name)
