@@ -237,6 +237,7 @@ def load_dowloaded_dataset(url):
             yield "\n".join(infos)
 
         zip_path = os.listdir(zips_path)
+        foldername = ""
         for file in zip_path:
             if file.endswith('.zip'):
                 file_path = os.path.join(zips_path, file)
@@ -244,11 +245,18 @@ def load_dowloaded_dataset(url):
                     lista_archivos = archivo_zip.namelist()
                     if lista_archivos[0].endswith('/') and any(f.startswith(lista_archivos[0]) for f in lista_archivos[1:]):
                         print("El archivo ZIP contiene un solo directorio y todos los archivos están dentro de ese directorio.")
+                        foldername = lista_archivos[0].replace("/","")
                     else:
                         print("El archivo ZIP fue comprimido fuera de un folder. Intentando proceder con la extracción....")
-                        datasets_path = os.path.join(datasets_path, file.replace(".zip","").replace(" ","").replace("-","_"))
+                        foldername = file.replace(".zip","").replace(" ","").replace("-","_")
+                        datasets_path = os.path.join(datasets_path, foldername)
 
                 shutil.unpack_archive(file_path, datasets_path, 'zip')
+                
+                # Renombrar folder en /rvc/datatasets si tiene espacios
+                new_dataset_folder_name = os.path.join(datasets_path, foldername).replace(" ","").replace("(","").replace(")","").replace("-","_")
+                os.rename(os.path.join(datasets_path, foldername), new_dataset_folder_name)
+                
                 new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
                 os.rename(file_path, new_name)
         

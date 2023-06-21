@@ -4,7 +4,8 @@ import sys
 import signal
 import psutil
 import json # Mangio fork using json for preset saving
-
+from gtts import gTTS
+import requests
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 import traceback, pdb
@@ -232,9 +233,9 @@ def vc_single(
         if tgt_sr != resample_sr >= 16000:
             tgt_sr = resample_sr
         index_info = (
-            "Using index:%s." % file_index
+            "Usando indice:%s." % file_index
             if os.path.exists(file_index)
-            else "Index not used."
+            else "Indice no usado."
         )
         return "Success.\n %s\nTime:\n npy:%ss, f0:%ss, infer:%ss" % (
             index_info,
@@ -1756,6 +1757,42 @@ def update_dataset_list(name):
             new_datasets.append(os.path.join(easy_infer.find_folder_parent(".","pretrained"),"datasets",foldername))
     return gr.Dropdown.update(choices=new_datasets)
 
+# Texto a voz
+def elevenTTS(xiapi, text, id):
+    parent_path = os.getcwd()
+    audios_path = os.path.join(parent_path, "audios")
+    if xiapi!= '':
+        CHUNK_SIZE = 1024
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{id}"
+        headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": xiapi
+        }
+
+        data = {
+        "text": text,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {
+          "stability": 0.5,
+          "similarity_boost": 0.5
+        }
+        }
+
+        response = requests.post(url, json=data, headers=headers)
+        with open('./temp_eleven.mp3', 'wb') as f:
+          for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+              if chunk:
+                  f.write(chunk)
+        aud_path = easy_infer.save_to_wav('./temp_eleven.mp3')
+        aud_path = os.path.join(audios_path, aud_path)
+        return aud_path, aud_path
+    else:
+        tts = gTTS(text, lang="es")
+        tts.save('./temp_gTTS.mp3')
+        aud_path = easy_infer.save_to_wav('./temp_gTTS.mp3')
+        aud_path = os.path.join(audios_path, aud_path)
+        return aud_path, aud_path
 
 with gr.Blocks(theme=gr.themes.Soft()) as app:
     gr.HTML("<h1> The Mangio-RVC-Fork - IA Hispano - Juuxn 💻 </h1>")
@@ -1811,6 +1848,19 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             refresh_button2.click(fn=easy_infer.change_choices2, inputs=[], outputs=[input_audio0])
                             record_button.change(fn=easy_infer.save_to_wav, inputs=[record_button], outputs=[input_audio0])
                             record_button.change(fn=easy_infer.change_choices2, inputs=[], outputs=[input_audio0])
+                        with gr.Row():
+                            with gr.Accordion('Texto a voz', open=False):
+                                with gr.Row():
+                                    with gr.Column():
+                                        api_box = gr.Textbox(label="Introduce tu API Key de ElevenLabs, o dejalo vacio para usar GoogleTTS", value='')
+                                    with gr.Column():
+                                        elevenid=gr.Textbox(label="ID de la voz que quieres usar (Obtenlo en https://api.elevenlabs.io/v1/voices)", value='TxGEqnHWrfWFTfGW9XjX')
+                                with gr.Row():
+                                    with gr.Column():
+                                        tfs = gr.Textbox(label="Escribe tu texto", interactive=True, value="no")
+                                    with gr.Column():
+                                        tts_button = gr.Button(value="Hablar")
+                                        tts_button.click(fn=elevenTTS, inputs=[api_box,tfs, elevenid], outputs=[record_button, input_audio0])
                                 
                     with gr.Column():
                         file_index2 = gr.Dropdown(
