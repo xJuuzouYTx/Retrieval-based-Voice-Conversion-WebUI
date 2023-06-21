@@ -924,6 +924,10 @@ def train_index(exp_dir1, version19):
         return "¡Por favor, haga la extracción de características primero!"
     infos = []
     npys = []
+    
+    infos.append("Iniciando proceso...")
+    yield "\n".join(infos)
+    
     for name in sorted(listdir_res):
         phone = np.load("%s/%s" % (feature_dir, name))
         npys.append(phone)
@@ -961,6 +965,7 @@ def train_index(exp_dir1, version19):
     # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
     infos.append("Entrenando indice...")
     yield "\n".join(infos)
+    
     index_ivf = faiss.extract_index_ivf(index)  #
     index_ivf.nprobe = 1
     index.train(big_npy)
