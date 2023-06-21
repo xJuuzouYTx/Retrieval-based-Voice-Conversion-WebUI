@@ -49,6 +49,7 @@ def download_from_url(url):
                 result = subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"], capture_output=True, text=True)
                 if "Too many users have viewed or downloaded this file recently" in str(result.stderr):
                     return "demasiado uso"
+                print(result.stderr)
                 
         elif "mega.nz" in url:
             if "#!" in url:
