@@ -1860,8 +1860,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                             maximum=1,
                             label=i18n("检索特征占比"),
                             value=0.88,
-                            interactive=True,
-                            visible=False
+                            interactive=True
                         )
                     # with gr.Column():
                     resample_sr0 = gr.Slider(
