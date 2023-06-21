@@ -2252,7 +2252,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                         gr.Markdown(value="### Genere el indice antes de guardar.")
                         but4 = gr.Button(i18n("训练特征索引"), variant="primary")
                         gr.Markdown(value="### Guarde su modelo una vez el entrenamiento termina.")
-                        save_action = gr.Dropdown(label="Tipo de guardado", choices=["Guardar todo","Guardar D y G", "Guardar voz"], value="Guardar voz", interactive=True)
+                        save_action = gr.Dropdown(label="Tipo de guardado", choices=["Guardar todo","Guardar D y G", "Guardar voz"], value="Guardar todo", interactive=True)
                         but7 = gr.Button("Guardar modelo", variant="primary")
                         
                     info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=20)

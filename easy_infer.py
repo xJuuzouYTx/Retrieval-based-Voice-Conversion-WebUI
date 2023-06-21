@@ -286,12 +286,12 @@ def save_model(modelname, save_action):
             shutil.rmtree(zips_path)
             
         os.mkdir(zips_path)
-        
         added_file = glob.glob(os.path.join(logs_path, "added_*.index"))
         d_file = glob.glob(os.path.join(logs_path, "D_*.pth"))
         g_file = glob.glob(os.path.join(logs_path, "G_*.pth"))
         
         if save_action == "Guardar todo":
+            print("Guardar todo")
             shutil.copytree(logs_path, dst)
         else:
             # Si no existe el folder donde se va a comprimir el modelo
@@ -299,26 +299,29 @@ def save_model(modelname, save_action):
                 os.mkdir(dst)
             
         if save_action == "Guardar D y G":
-
+            print("Guardar D y G")
             if len(d_file) > 0:
                 shutil.copy(d_file[0], dst)
             if len(g_file) > 0:
                 shutil.copy(g_file[0], dst)    
-            if len(added_file) > 0:
-                shutil.copy(added_file[0], dst)
                 
-        if save_action == "Guardar voz":
-            pass
             if len(added_file) > 0:
                 shutil.copy(added_file[0], dst)
             else:
-                shutil.rmtree(zips_path)
+                infos.append("Guardando sin indice...")
+                
+        if save_action == "Guardar voz":
+            print("Guardar Voz")
+            if len(added_file) > 0:
+                shutil.copy(added_file[0], dst)
+            else:
+                infos.append("Guardando sin indice...")
                 #raise gr.Error("¡No ha generado el archivo added_*.index!")
         
         yield "\n".join(infos)
         # Si no existe el archivo del modelo no copiarlo
         if not os.path.exists(weights_path):
-            shutil.rmtree(zips_path)
+            infos.append("Guardando sin modelo pequeño...")
             #raise gr.Error("¡No ha generado el modelo pequeño!")
         else:
             shutil.copy(weights_path, dst)
