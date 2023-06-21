@@ -152,17 +152,25 @@ def load_downloaded_model(url):
                 if item.startswith('added_') and item.endswith('.index'):
                     index_file = True
                     if os.path.exists(item_path):
+                        if os.path.exists(os.path.join(logs_dir, item)):
+                            os.remove(os.path.join(logs_dir, item))
                         shutil.move(item_path, logs_dir)
                 if 'D_' in item and item.endswith('.pth'):
                     D_file = True
                     if os.path.exists(item_path):
+                        if os.path.exists(os.path.join(logs_dir, item)):
+                            os.remove(os.path.join(logs_dir, item))
                         shutil.move(item_path, logs_dir)
                 if 'G_' in item and item.endswith('.pth'):
                     G_file = True
                     if os.path.exists(item_path):
+                        if os.path.exists(os.path.join(logs_dir, item)):
+                            os.remove(os.path.join(logs_dir, item))
                         shutil.move(item_path, logs_dir)
                 if item.startswith('total_fea.npy') or item.startswith('events.'):
                     if os.path.exists(item_path):
+                        if os.path.exists(os.path.join(logs_dir, item)):
+                            os.remove(os.path.join(logs_dir, item))
                         shutil.move(item_path, logs_dir)
                 
         # Mover todos los folders excepto 'eval'
