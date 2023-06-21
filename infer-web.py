@@ -1263,15 +1263,18 @@ def stop_training(save_name, sample_rate, has_pitch_guidance, version):
     infos = []
     try:
         if running_process:
-            print("Deteniendo entrenamiento")
-            infos.append("Deteniendo entrenamiento. \nIntentando generar modelo pequeño automaticamente...")
-            yield "\n".join(infos)
-            
-            process = psutil.Process(running_process.pid)
-            for proc in process.children(recursive=True):
-                proc.kill()
-            process.kill()
-            running_process = None
+            try:
+                print("Deteniendo entrenamiento")
+                infos.append("Deteniendo entrenamiento. \nIntentando generar modelo pequeño automaticamente...")
+                yield "\n".join(infos)
+                
+                process = psutil.Process(running_process.pid)
+                for proc in process.children(recursive=True):
+                    proc.kill()
+                process.kill()
+                running_process = None
+            except psutil.NoSuchProcess:
+                print(f"El entrenamiento parece haber terminado.")
         else:
             infos.append("No hay ningún entrenamiento en proceso. \nIntentando generar modelo pequeño automaticamente...")
             yield "\n".join(infos)
