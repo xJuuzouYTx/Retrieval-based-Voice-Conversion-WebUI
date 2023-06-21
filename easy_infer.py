@@ -253,6 +253,7 @@ def load_dowloaded_dataset(url):
 
                 shutil.unpack_archive(file_path, datasets_path, 'zip')
                 
+                datasets_path = os.path.join(parent_path, 'datasets')
                 # Renombrar folder en /rvc/datatasets si tiene espacios
                 new_dataset_folder_name = os.path.join(datasets_path, foldername).replace(" ","").replace("(","").replace(")","").replace("-","_")
                 os.rename(os.path.join(datasets_path, foldername), new_dataset_folder_name)
