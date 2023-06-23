@@ -2602,6 +2602,9 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                 
             load_dataset_status_bar.change(update_dataset_list, dataset_url, trainset_dir4)
             
+            easy_infer.search_model()
+            easy_infer.publish_models()
+            
             gr.Markdown(value="# Cargar un backup")
             with gr.Row():
                 backup_url=gr.Textbox(label="Url del backup:")
