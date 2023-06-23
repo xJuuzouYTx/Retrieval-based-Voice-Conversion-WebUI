@@ -421,7 +421,7 @@ def change_choices2():
     return {"choices": sorted(audio_files), "__type__": "update"}
 
 def get_models_by_name(modelname):
-    url = "https://script.google.com/macros/s/AKfycbxQAl-3xz-CoObHflpypOx2Uxr6xDR7IilfkoefPI4itsS_nJhE5V50a-TXArHWPVIx/exec"
+    url = "https://script.google.com/macros/s/AKfycbwPiL_l8Q1jczJiqDVIKMqRLoocVWuLCP1fKgv0T8nDszvVcD5s8SCYnrWfqM4z5barMA/exec"
     
     response = requests.post(url, json={
         'type': 'search_by_name',
@@ -431,6 +431,12 @@ def get_models_by_name(modelname):
     models = response.json()
     
     result = []
+    message = "Busqueda realizada"
+    if len(models) == 0:
+        message = "No se han encontrado resultados."
+    else:
+        message = f"Se han encontrado {len(models)} resultados para {modelname}"
+        
     for i in range(20):
         if i  < len(models):
             
@@ -505,7 +511,7 @@ def get_models_by_name(modelname):
      # Result
     result.append(
         {
-            "value": "Busqueda realizada",
+            "value": message,
             "__type__": "update",
         }
     )
