@@ -48,7 +48,7 @@ def download_from_url(url):
             
             if file_id:
                 os.chdir('./zips')
-                result = subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"], capture_output=True, text=True)
+                result = subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"], capture_output=True, text=True, encoding='utf-8')
                 if "Too many users have viewed or downloaded this file recently" in str(result.stderr):
                     return "demasiado uso"
                 print(result.stderr)
@@ -249,7 +249,7 @@ def load_dowloaded_dataset(url):
                         print("El archivo ZIP contiene un solo directorio y todos los archivos están dentro de ese directorio.")
                         foldername = lista_archivos[0].replace("/","")
                     else:
-                        print("El archivo ZIP fue comprimido fuera de un folder. Intentando proceder con la extracción....")
+                        print("El archivo se comprimio fuera de un folder. Intentando proceder con la extracción....")
                         foldername = file.replace(".zip","").replace(" ","").replace("-","_")
                         datasets_path = os.path.join(datasets_path, foldername)
 
