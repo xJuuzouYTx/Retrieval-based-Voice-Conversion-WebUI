@@ -225,6 +225,7 @@ def load_dowloaded_dataset(url):
             shutil.rmtree(zips_path)
         if os.path.exists(unzips_path):
             shutil.rmtree(unzips_path)
+            
         if not os.path.exists(datasets_path):
             os.mkdir(datasets_path)
             
@@ -243,36 +244,27 @@ def load_dowloaded_dataset(url):
         for file in zip_path:
             if file.endswith('.zip'):
                 file_path = os.path.join(zips_path, file)
-                with zipfile.ZipFile(file_path, "r") as archivo_zip:
-                    lista_archivos = archivo_zip.namelist()
-                    if lista_archivos[0].endswith('/') and any(f.startswith(lista_archivos[0]) for f in lista_archivos[1:]):
-                        print("El archivo ZIP contiene un solo directorio y todos los archivos están dentro de ese directorio.")
-                        foldername = lista_archivos[0].replace("/","")
-                    else:
-                        print("El archivo se comprimio fuera de un folder. Intentando proceder con la extracción....")
-                        foldername = file.replace(".zip","").replace(" ","").replace("-","_")
-                        datasets_path = os.path.join(datasets_path, foldername)
-
-                shutil.unpack_archive(file_path, datasets_path, 'zip')
+                print("Intentando proceder con la extracción....")
+                foldername = file.replace(".zip","").replace(" ","").replace("-","_")
+                dataset_path = os.path.join(datasets_path, foldername)
+                shutil.unpack_archive(file_path, unzips_path, 'zip')
+                if os.path.exists(dataset_path):
+                    shutil.rmtree(dataset_path)
+                    
+                os.mkdir(dataset_path)
                 
-                datasets_path = os.path.join(parent_path, 'datasets')
-                # Renombrar folder en /rvc/datatasets si tiene espacios
-                old_dataset_folder_name = foldername
+                for root, subfolders, songs in os.walk(unzips_path):
+                    for song in songs:
+                        song_path = os.path.join(root, song)
+                        if song.endswith(".wav"):
+                            shutil.move(song_path, dataset_path)
 
-                # Reemplazar espacios y otros caracteres no deseados en el nuevo nombre
-                new_dataset_folder_name = old_dataset_folder_name.replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_")
-
-                # Construir las rutas antiguas y nuevas
-                old_path = os.path.join(datasets_path, old_dataset_folder_name)
-                new_path = os.path.join(datasets_path, new_dataset_folder_name)
-
-                # Renombrar el directorio
-                os.rename(old_path, new_path)
-                
-                new_name = file_path.replace(" ", "").encode("ascii", "ignore").decode()
-                os.rename(file_path, new_name)
-        
-        infos.append("Dataset cargado correctamente.")
+        if os.path.exists(zips_path):
+            shutil.rmtree(zips_path)
+        if os.path.exists(unzips_path):
+            shutil.rmtree(unzips_path)
+            
+        infos.append(f"Dataset cargado correctamente.")
         yield "\n".join(infos)
     except Exception as e:
         os.chdir(parent_path)
@@ -802,3 +794,4 @@ def publish_models():
         results = gr.Textbox(label="Resultado", value="", max_lines=20)
         
         publish_model_button.click(fn=publish_model_clicked, inputs=[model_name, url], outputs=results)
+        
