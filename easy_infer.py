@@ -413,7 +413,7 @@ def change_choices2():
     return {"choices": sorted(audio_files), "__type__": "update"}
 
 def get_models_by_name(modelname):
-    url = "https://script.google.com/macros/s/AKfycbwPiL_l8Q1jczJiqDVIKMqRLoocVWuLCP1fKgv0T8nDszvVcD5s8SCYnrWfqM4z5barMA/exec"
+    url = "https://script.google.com/macros/s/AKfycbySlcI2ssWX1zoMzXdbXRsJ2NFTgVhDg1f5dpvA2eAAfhlIkY5yuWTIq-987mZHph7lMQ/exec"
     
     response = requests.post(url, json={
         'type': 'search_by_name',
@@ -703,7 +703,7 @@ def search_model():
                                                                                  ])
 def publish_model_clicked(name, url):
     
-    ws_url = "https://script.google.com/macros/s/AKfycbzCBVubj9vkjKC8C0h-9-JnxUT4guKG2cs5dvDbnV2rSwNzzJ-WHvQab1WOvH0AAHowYg/exec"
+    ws_url = "https://script.google.com/macros/s/AKfycbySlcI2ssWX1zoMzXdbXRsJ2NFTgVhDg1f5dpvA2eAAfhlIkY5yuWTIq-987mZHph7lMQ/exec"
     
     response = requests.post(ws_url, json={
         'type': 'model_by_url',
