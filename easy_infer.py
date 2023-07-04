@@ -228,6 +228,11 @@ def load_downloaded_model(url):
             infos.append("El modelo puede ser reentrenado.")
             yield "\n".join(infos)
         
+        if not index_file and not model_file and not D_file and not G_file:
+            print("No se encontró ningún archivo relevante para cargar.")
+            infos.append("No se encontró ningún archivo relevante para cargar.")
+            yield "\n".join(infos)
+        
         os.chdir(parent_path)    
         return result
     except Exception as e:
