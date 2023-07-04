@@ -10,6 +10,30 @@ import gdown
 import zipfile
 import json
 import requests
+import wget
+import hashlib
+from unidecode import unidecode
+import re
+import time
+from huggingface_hub import HfApi, list_models
+from huggingface_hub import login
+
+def calculate_md5(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+
+def get_md5(temp_folder):
+  for root, subfolders, files in os.walk(temp_folder):
+    for file in files:
+      if not file.startswith("G_") and not file.startswith("D_") and file.endswith(".pth") and not "_G_" in file and not "_D_" in file:
+        md5_hash = calculate_md5(os.path.join(root, file))
+        return md5_hash
+
+  return None
 
 def find_parent(search_dir, file_name):
     for dirpath, dirnames, filenames in os.walk(search_dir):
@@ -51,6 +75,8 @@ def download_from_url(url):
                 result = subprocess.run(["gdown", f"https://drive.google.com/uc?id={file_id}", "--fuzzy"], capture_output=True, text=True, encoding='utf-8')
                 if "Too many users have viewed or downloaded this file recently" in str(result.stderr):
                     return "demasiado uso"
+                if "Cannot retrieve the public link of the file." in str(result.stderr):
+                    return "link privado"
                 print(result.stderr)
                 
         elif "mega.nz" in url:
@@ -65,7 +91,7 @@ def download_from_url(url):
                 m.download_url(url, zips_path)
         else:
             os.chdir('./zips')
-            subprocess.run(["wget", url])
+            wget.download(url)
             
         os.chdir(parent_path)
         print("Descarga completa.")
@@ -107,6 +133,8 @@ def load_downloaded_model(url):
             yield "\n".join(infos)
         elif download_file == "demasiado uso":
             raise Exception("demasiado uso")
+        elif download_file == "link privado":
+            raise Exception("link privado")
         
         # Descomprimir archivos descargados
         for filename in os.listdir(zips_path):
@@ -206,7 +234,10 @@ def load_downloaded_model(url):
         os.chdir(parent_path)
         if "demasiado uso" in str(e):
             print("Demasiados usuarios han visto o descargado este archivo recientemente. Por favor, intenta acceder al archivo nuevamente más tarde. Si el archivo al que estás intentando acceder es especialmente grande o está compartido con muchas personas, puede tomar hasta 24 horas para poder ver o descargar el archivo. Si aún no puedes acceder al archivo después de 24 horas, ponte en contacto con el administrador de tu dominio.")
-            yield "El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace."    
+            yield "El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace."
+        elif "link privado" in str(e):
+            print("El enlace que has proporcionado tiene el acceso privado, asegurate de compartirlo para 'cualquiera con el enlace'")
+            yield "El enlace que has proporcionado tiene el acceso privado, asegurate de compartirlo para 'cualquiera con el enlace'" 
         else:
             print(e)
             yield "Ocurrio un error descargando el modelo"
@@ -233,12 +264,21 @@ def load_dowloaded_dataset(url):
         os.mkdir(unzips_path)
         
         download_file = download_from_url(url)
+        
         if not download_file:
-            raise Exception("No se ha podido descargar el dataset.")
-        else:
+            print("No se ha podido descargar el dataset.")
+            infos.append("No se ha podido descargar el dataset.")
+            yield "\n".join(infos)
+            raise Exception("Hubo un problema descargando el dataset...")
+        elif download_file == "downloaded":
+            print("Dataset descargado. Procediendo con la extracción...")
             infos.append("Dataset descargado. Procediendo con la extracción...")
             yield "\n".join(infos)
-
+        elif download_file == "demasiado uso":
+            raise Exception("demasiado uso")
+        elif download_file == "link privado":
+            raise Exception("link privado")
+  
         zip_path = os.listdir(zips_path)
         foldername = ""
         for file in zip_path:
@@ -268,13 +308,17 @@ def load_dowloaded_dataset(url):
         yield "\n".join(infos)
     except Exception as e:
         os.chdir(parent_path)
-        print(e)
-        if "No se ha podido descargar el dataset." in str(e):
-            infos.append("Ocurrio un error al descargar, intentalo de nuevo o usa otro enlace.")
-            yield "\n".join(infos)
+        if "demasiado uso" in str(e):
+            print("Demasiados usuarios han visto o descargado este archivo recientemente. Por favor, intenta acceder al archivo nuevamente más tarde. Si el archivo al que estás intentando acceder es especialmente grande o está compartido con muchas personas, puede tomar hasta 24 horas para poder ver o descargar el archivo. Si aún no puedes acceder al archivo después de 24 horas, ponte en contacto con el administrador de tu dominio.")
+            yield "El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace."    
+        elif "link privado" in str(e):
+            print("El enlace que has proporcionado tiene el acceso privado, asegurate de compartirlo para 'cualquiera con el enlace'")
+            yield "El enlace que has proporcionado tiene el acceso privado, asegurate de compartirlo para 'cualquiera con el enlace'" 
         else:
-            infos.append("Ocurrio un error desconocido.")
-            yield "\n".join(infos)
+            print(e)
+            yield "Ocurrio un error descargando el dataset"
+    finally:
+        os.chdir(parent_path)
 
 def save_model(modelname, save_action):
        
@@ -413,14 +457,15 @@ def change_choices2():
     return {"choices": sorted(audio_files), "__type__": "update"}
 
 def get_models_by_name(modelname):
-    url = "https://script.google.com/macros/s/AKfycbySlcI2ssWX1zoMzXdbXRsJ2NFTgVhDg1f5dpvA2eAAfhlIkY5yuWTIq-987mZHph7lMQ/exec"
+    url = "https://script.google.com/macros/s/AKfycbzyrdLZzUww9qbjxnbnI08budD4yxbmRPHkWbp3UEJ9h3Id5cnNNVg0UtfFAnqqX5Rr/exec"
     
     response = requests.post(url, json={
-        'type': 'search_by_name',
-        'name': modelname.strip().lower()
+        'type': 'search_by_filename',
+        'filename': modelname.strip().lower()
     })
 
-    models = response.json()
+    response_json = response.json()
+    models = response_json['ocurrences']
     
     result = []
     message = "Busqueda realizada"
@@ -431,19 +476,22 @@ def get_models_by_name(modelname):
         
     for i in range(20):
         if i  < len(models):
-            
+            urls = models[i].get('url')
+            url = eval(urls)[0]
+            name = str(models[i].get('name'))
+            filename = str(models[i].get('filename')) if not name or name.strip() == "" else name
             # Nombre
             result.append(
                 {
                     "visible": True,
-                    "value": str("### ") + str(models[i].get('name')),
+                    "value": str("### ") + filename,
                     "__type__": "update",
                 })
             # Url
             result.append(
                 {
                     "visible": False,
-                    "value": models[i].get('url'),
+                    "value": url,
                     "__type__": "update",
                 })
             # Boton
@@ -701,97 +749,293 @@ def search_model():
                                                                                  l20,l20_url, b20, mk20, row20,
                                                                                  results
                                                                                  ])
-def publish_model_clicked(name, url):
     
-    ws_url = "https://script.google.com/macros/s/AKfycbySlcI2ssWX1zoMzXdbXRsJ2NFTgVhDg1f5dpvA2eAAfhlIkY5yuWTIq-987mZHph7lMQ/exec"
-    
-    response = requests.post(ws_url, json={
-        'type': 'model_by_url',
-        'url': url
-    })
 
-    response_json = response.json()
-    print(response_json)
-    infos = []
+def descargar_desde_drive(url, name, output_file):
+
+    print(f"Descargando {name} de drive")
     
-    if len(name) < 10:
-        infos.append("El nombre del modelo debe ser más descriptivo.")
-        yield "\n".join(infos)
+    try:
+        downloaded_file = gdown.download(url, output=output_file, fuzzy=True)
+        return downloaded_file
+    except:
+        print("El intento de descargar con drive no funcionó")
+        return None
+
+def descargar_desde_mega(url, name):
+  response = False
+  try:
+    file_id = None
+
+    if "#!" in url:
+      file_id = url.split("#!")[1].split("!")[0]
+    elif "file/" in url:
+      file_id = url.split("file/")[1].split("/")[0]
+    else:
+      file_id = None
+
+    if file_id:
+      mega = Mega()
+      m = mega.login()
+
+      print(f"Descargando {name} de mega")
+      downloaded_file = m.download_url(url)
+
+      return downloaded_file
+    else:
+      return None
+
+  except Exception as e:
+    print("Ocurrio un error**")
+    print(e)
+    return None
+
+def descargar_desde_url_basica(url, name, output_file):
+  try:
+    print(f"Descargando {name} de URL BASICA")
+    filename = wget.download(url=url, out=output_file)
+    return filename
+  except Exception as e:
+     print(f"Error al descargar el archivo: {str(e)}")
+
+def is_valid_model(name):
+  parent_path = find_folder_parent(".", "pretrained_v2")
+  unzips_path = os.path.join(parent_path, 'unzips')
+  
+  response = []
+  file_path = os.path.join(unzips_path, name)
+
+  has_model = False
+  has_index = False
+
+  for root, subfolders, files in os.walk(file_path):
+    for file in files:
+      current_file_path = os.path.join(root, file)
+      if not file.startswith("G_") and not file.startswith("D_") and file.endswith(".pth") and not "_G_" in file and not "_D_" in file:
+        has_model = True
+      if file.startswith('added_') and file.endswith('.index'):
+        has_index = True
+
+  #if has_model and has_index:
+  if has_index:
+    response.append(".index")
+
+  if has_model:
+    response.append(".pth")
+
+  return response
+
+
+def create_zip(new_name):
+    
+    parent_path = find_folder_parent(".", "pretrained_v2")
+    temp_folder_path = os.path.join(parent_path, 'temp_models')
+    unzips_path = os.path.join(parent_path, 'unzips')
+    zips_path = os.path.join(parent_path, 'zips')
+  
+    file_path = os.path.join(unzips_path, new_name)
+    file_name = os.path.join(temp_folder_path, new_name)
+
+    if not os.path.exists(zips_path):
+        os.mkdir(zips_path)
+
+    if os.path.exists(file_name):
+        shutil.rmtree(file_name)
+
+    os.mkdir(file_name)
+
+    while not os.path.exists(file_name):
+        time.sleep(1)
+
+    for root, subfolders, files in os.walk(file_path):
+        for file in files:
+            current_file_path = os.path.join(root, file)
+            if not file.startswith("G_") and not file.startswith("D_") and file.endswith(".pth") and not "_G_" in file and not "_D_" in file:
+                print(f'Copiando {current_file_path} a {os.path.join(temp_folder_path, new_name)}')
+                shutil.copy(current_file_path, file_name)
+            if file.startswith('added_') and file.endswith('.index'):
+                print(f'Copiando {current_file_path} a {os.path.join(temp_folder_path, new_name)}')
+                shutil.copy(current_file_path, file_name)
+
+    print("Comprimiendo modelo")
+    zip_path =  os.path.join(zips_path, new_name)
+    
+    print(f"Comprimiendo {file_name} en {zip_path}")
+    shutil.make_archive(zip_path, 'zip', file_name)
+  
+def upload_to_huggingface(file_path, new_filename):
+    api = HfApi()
+    login(token="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")
+    api.upload_file(
+        path_or_fileobj=file_path,
+        path_in_repo=new_filename,
+        repo_id="juuxn/RVCModels",
+        repo_type="model",
+    )
+    return f"https://huggingface.co/juuxn/RVCModels/resolve/main/{new_filename}"
+
+
+def publish_model_clicked(model_name, model_url, model_version, model_creator):
+    
+    web_service_url = "https://script.google.com/macros/s/AKfycbzyrdLZzUww9qbjxnbnI08budD4yxbmRPHkWbp3UEJ9h3Id5cnNNVg0UtfFAnqqX5Rr/exec"
+    name = unidecode(model_name)
+    new_name = unidecode(name.strip().replace(" ","_").replace("'",""))
+    
+    downloaded_path = ""
+    url = model_url
+    version = model_version
+    creator = model_creator
+    parent_path = find_folder_parent(".", "pretrained_v2")
+    output_folder = os.path.join(parent_path, 'archivos_descargados')
+    output_file = os.path.join(output_folder, f'{new_name}.zip')
+    unzips_path = os.path.join(parent_path, 'unzips')
+    zips_path = os.path.join(parent_path, 'zips')
+    temp_folder_path = os.path.join(parent_path, 'temp_models')
+    
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.mkdir(output_folder)
+    
+    if os.path.exists(temp_folder_path):
+        shutil.rmtree(temp_folder_path)
+    os.mkdir(temp_folder_path)
+    
+    
+    if url and 'drive.google.com' in url:
+    # Descargar el elemento si la URL es de Google Drive
+        downloaded_path = descargar_desde_drive(url, new_name, output_file)
+    elif url and 'mega.nz' in url:
+        downloaded_path = descargar_desde_mega(url, new_name, output_file)
+    elif url and 'pixeldrain' in url:
+        print("No se puede descargar de pixeldrain")
+    else:
+        downloaded_path = descargar_desde_url_basica(url, new_name, output_file)
         
-        return
-    
-    if response_json.get('exists') == True:
-        infos.append("El enlace que intentas usar ya se encuentra en el sistema.")
-        yield "\n".join(infos)
+    if not downloaded_path:
+        print(f"No se pudo descargar: {name}")
+    else:
+        filename = name.strip().replace(" ","_")
+        dst =f'{filename}.zip'
+        shutil.unpack_archive(downloaded_path, os.path.join(unzips_path, filename))
+        md5_hash = get_md5(os.path.join(unzips_path, filename))
+
+        if not md5_hash:
+            print("No tiene modelo pequeño")
+            return
+
+        md5_response_raw = requests.post(web_service_url, json={
+            'type': 'check_md5',
+            'md5_hash': md5_hash
+        })
         
-        return 
-    
-    zips_path = "zips"
-    
-    if os.path.exists(zips_path):
-        shutil.rmtree(zips_path)
-    
-    os.mkdir(zips_path)
-         
-    download_file = download_from_url(url)
-    
-    dowloaded = False
-    if not download_file:
-        print("No se ha podido descargar el modelo.")
-        infos.append("No se ha podido descargar el modelo.")
-    elif download_file == "downloaded":
-        print("Comprobando archivos del modelo...")
-        infos.append("Comprobando archivos del modelo....")
+        md5_response = md5_response_raw.json()
+        ok = md5_response["ok"]
+        exists = md5_response["exists"]
+        message = md5_response["message"]
+
+        is_valid = is_valid_model(filename)
         
-        for filename in os.listdir(zips_path):
-            if filename.endswith(".zip"):
-                zipfile_path = os.path.join(zips_path,filename)
+        if md5_hash and exists:
+            print(f"El archivo se ha publicado en spreadsheet con md5: {md5_hash}")
+            return f"El archivo se ha publicado con md5: {md5_hash}"
+        
+        if ".pth" in is_valid and not exists:
+
+            create_zip(filename)
+            huggingface_url = upload_to_huggingface(os.path.join(zips_path,dst), dst)
                 
-                with zipfile.ZipFile(zipfile_path, 'r') as zip_ref:
-                    contiene_index = False
-                    contiene_pth = False
-                    contiene_otro = False
-                    
-                    for archivo in zip_ref.namelist():
-                        if archivo.endswith('.index'):
-                            contiene_index = True
-                        elif archivo.endswith('.pth') and not archivo.startswith("D_") and  not archivo.startswith("G_"):
-                            contiene_pth = True
-                        if (not archivo.endswith('.index') and not archivo.endswith("/")) and (archivo.endswith('.pth') and archivo.startswith("D_") and not archivo.endswith("/")) or (archivo.startswith("G_") and archivo.endswith('.pth') and not archivo.endswith("/")):
-                            contiene_otro = True
-                            
-                    if contiene_index and contiene_pth and not contiene_otro:
-                        response1 = requests.post(ws_url, json={
-                            'type': 'save_model',
-                            'url': url,
-                            'name': name
-                        })
-                        infos.append("Modelo aceptado.")
-                        print("Modelo aceptado.")
-                    else:
-                        infos.append("Modelo no aceptado.")
-                        print("Modelo no aceptado.")
-                    
-                yield "\n".join(infos)
-            else:
-                print("Error al descomprimir el modelo.")
-                infos.append("Error al descomprimir el modelo.")
-                yield "\n".join(infos)    
-    elif download_file == "demasiado uso":
-        infos.append("El enlace llegó al limite de uso, intenta nuevamente más tarde o usa otro enlace.")
-    
-    shutil.rmtree(zips_path)
-    yield "\n".join(infos)
+            response = requests.post(web_service_url, json={
+        'type': 'save_model',
+        'elements': [{
+                'name': name,
+                'filename': filename,
+                'url': [huggingface_url],
+                'version': version,
+                'creator': creator,
+                'md5_hash': md5_hash,
+                'content': is_valid
+            }]})
+            
+            response_data = response.json()
+            ok = response_data["ok"]
+            message = response_data["message"]
 
+            print({
+                'name': name,
+                'filename': filename,
+                'url': [huggingface_url],
+                'version': version,
+                'creator': creator,
+                'md5_hash': md5_hash,
+                'content': is_valid
+            })   
+            
+            if ok:
+                return f"El archivo ya se encuentra publicado con md5: {md5_hash}"
+            else:
+                print(message)
+                return message         
+            
+        # Eliminar folder donde se decarga el modelo zip
+        if os.path.exists(output_folder):
+            shutil.rmtree(output_folder)
+            
+        # Eliminar folder de zips, donde se descomprimio el modelo descargado
+        if os.path.exists(unzips_path):
+            shutil.rmtree(unzips_path)
+            
+        # Eliminar folder donde se copiaron los archivos indispensables del modelo
+        if os.path.exists(temp_folder_path):
+            shutil.rmtree(temp_folder_path)
+        
+        # Eliminar folder donde se comprimio el modelo para enviarse a huggingface
+        if os.path.exists(zips_path):
+            shutil.rmtree(zips_path)
+            
 def publish_models():
     with gr.Column():
         gr.Markdown("# Publicar un modelo en la comunidad")
-        gr.Markdown("El modelo se va a verificar antes de publicarse. Importante que solo contenga el archivo **.pth** del modelo y el archivo **added_.index** para que no sea rechazado.")
+        gr.Markdown("El modelo se va a verificar antes de publicarse. Importante que contenga el archivo **.pth** del modelo para que no sea rechazado.")
         
         model_name = gr.inputs.Textbox(lines=1, label="Nombre descriptivo del modelo Ej: (Ben 10 [Latino] - RVC V2 - 250 Epoch)")
         url = gr.inputs.Textbox(lines=1, label="Enlace del modelo")
+        moder_version = gr.Radio(
+            label="Versión",
+            choices=["RVC v1", "RVC v2"],
+            value="RVC v1",
+            interactive=True,
+        )
+        model_creator = gr.inputs.Textbox(lines=1, label="ID de discord del creador del modelo Ej: <@123455656>")
         publish_model_button=gr.Button("Publicar modelo")
         results = gr.Textbox(label="Resultado", value="", max_lines=20)
         
-        publish_model_button.click(fn=publish_model_clicked, inputs=[model_name, url], outputs=results)
-        
+        publish_model_button.click(fn=publish_model_clicked, inputs=[model_name, url, moder_version, model_creator], outputs=results)
+
+def download_model():
+    gr.Markdown(value="# Descargar un modelo")
+    with gr.Row():
+        model_url=gr.Textbox(label="Url del modelo:")
+    with gr.Row():
+        download_button=gr.Button("Descargar modelo")
+    with gr.Row():
+        download_model_status_bar=gr.Textbox(label="status")
+        download_button.click(fn=load_downloaded_model, inputs=[model_url], outputs=[download_model_status_bar])
+
+def update_dataset_list(name):
+    new_datasets = []
+    for foldername in os.listdir("./datasets"):
+        if "." not in foldername:
+            new_datasets.append(os.path.join(find_folder_parent(".","pretrained"),"datasets",foldername))
+    return gr.Dropdown.update(choices=new_datasets)
+
+def download_dataset(trainset_dir4):
+    gr.Markdown(value="# Cargar un dataset")
+    with gr.Row():
+        dataset_url=gr.Textbox(label="Url del dataset:")
+    with gr.Row():
+        load_dataset_button=gr.Button("Cargar dataset")
+    with gr.Row():
+        load_dataset_status_bar=gr.Textbox(label="status")
+        load_dataset_button.click(fn=load_dowloaded_dataset, inputs=[dataset_url], outputs=[load_dataset_status_bar])
+        load_dataset_status_bar.change(update_dataset_list, dataset_url, trainset_dir4)
+

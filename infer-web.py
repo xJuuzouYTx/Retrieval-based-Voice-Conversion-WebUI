@@ -1392,7 +1392,7 @@ def export_onnx(ModelPath, ExportedPath):
         input_names=input_names,
         output_names=output_names,
     )
-    return "Finished"
+    return "Finalizado!"
 
 
 #region Mangio-RVC-Fork CLI App
@@ -1749,13 +1749,6 @@ def update_g_files(name):
             if 'G_' in filename and filename.endswith('.pth'):
                 g_files.append(os.path.join(root, filename))
     return gr.Dropdown.update(choices=g_files)
-
-def update_dataset_list(name):
-    new_datasets = []
-    for foldername in os.listdir("./datasets"):
-        if "." not in foldername:
-            new_datasets.append(os.path.join(easy_infer.find_folder_parent(".","pretrained"),"datasets",foldername))
-    return gr.Dropdown.update(choices=new_datasets)
 
 # Texto a voz
 def elevenTTS(xiapi, text, id):
@@ -2234,7 +2227,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                     )
                     
                     btn_update_dataset_list.click(
-                        update_dataset_list, [spk_id5], trainset_dir4
+                        easy_infer.update_dataset_list, [spk_id5], trainset_dir4
                     )
                     
                     but1 = gr.Button(i18n("处理数据"), variant="primary")
@@ -2554,19 +2547,20 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
                 btn_extract_model_update_list.click(
                     update_g_files, [ckpt_path2], ckpt_path2
                 )
-
-        # with gr.TabItem(i18n("Onnx导出")):
-        #     with gr.Row():
-        #         ckpt_dir = gr.Textbox(label=i18n("RVC模型路径"), value="", interactive=True)
-        #     with gr.Row():
-        #         onnx_dir = gr.Textbox(
-        #             label=i18n("Onnx输出路径"), value="", interactive=True
-        #         )
-        #     with gr.Row():
-        #         infoOnnx = gr.Label(label="info")
-        #     with gr.Row():
-        #         butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
-        #     butOnnx.click(export_onnx, [ckpt_dir, onnx_dir], infoOnnx)
+            
+            with gr.Group():
+                gr.Markdown(value=i18n("Onnx导出"))
+                with gr.Row():
+                    ckpt_dir = gr.Textbox(label=i18n("RVC模型路径"), value="", interactive=True)
+                with gr.Row():
+                    onnx_dir = gr.Textbox(
+                        label=i18n("Onnx输出路径"), value="", interactive=True
+                    )
+                with gr.Row():
+                    infoOnnx = gr.Label(label="info")
+                with gr.Row():
+                    butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
+                butOnnx.click(export_onnx, [ckpt_dir, onnx_dir], infoOnnx)
 
         # tab_faq = i18n("常见问题解答")
         # with gr.TabItem(tab_faq):
@@ -2582,26 +2576,9 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
         #         gr.Markdown(traceback.format_exc())
                 
         with gr.TabItem("Recursos"):
-            gr.Markdown(value="# Descargar un modelo")
-            with gr.Row():
-                model_url=gr.Textbox(label="Url del modelo:")
-            with gr.Row():
-                download_button=gr.Button("Descargar modelo")
-            with gr.Row():
-                download_model_status_bar=gr.Textbox(label="status")
-                download_button.click(fn=easy_infer.load_downloaded_model, inputs=[model_url], outputs=[download_model_status_bar])
             
-            gr.Markdown(value="# Cargar un dataset")
-            with gr.Row():
-                dataset_url=gr.Textbox(label="Url del dataset:")
-            with gr.Row():
-                load_dataset_button=gr.Button("Cargar dataset")
-            with gr.Row():
-                load_dataset_status_bar=gr.Textbox(label="status")
-                load_dataset_button.click(fn=easy_infer.load_dowloaded_dataset, inputs=[dataset_url], outputs=[load_dataset_status_bar])
-                
-            load_dataset_status_bar.change(update_dataset_list, dataset_url, trainset_dir4)
-            
+            easy_infer.download_model()
+            easy_infer.download_dataset(trainset_dir4) 
             easy_infer.search_model()
             easy_infer.publish_models()
             
