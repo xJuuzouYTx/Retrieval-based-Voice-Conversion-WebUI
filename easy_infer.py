@@ -461,7 +461,7 @@ def get_models_by_name(modelname):
     
     response = requests.post(url, json={
         'type': 'search_by_filename',
-        'filename': modelname.strip().lower()
+        'filename': unidecode(modelname.strip().lower())
     })
 
     response_json = response.json()
@@ -936,8 +936,8 @@ def publish_model_clicked(model_name, model_url, model_version, model_creator):
         is_valid = is_valid_model(filename)
         
         if md5_hash and exists:
-            print(f"El archivo se ha publicado en spreadsheet con md5: {md5_hash}")
-            return f"El archivo se ha publicado con md5: {md5_hash}"
+            print(f"El archivo ya se ha publicado en spreadsheet con md5: {md5_hash}")
+            return f"El archivo ya se ha publicado con md5: {md5_hash}"
         
         if ".pth" in is_valid and not exists:
 
@@ -971,7 +971,7 @@ def publish_model_clicked(model_name, model_url, model_version, model_creator):
             })   
             
             if ok:
-                return f"El archivo ya se encuentra publicado con md5: {md5_hash}"
+                return f"El archivo se ha publicado con md5: {md5_hash}"
             else:
                 print(message)
                 return message         
